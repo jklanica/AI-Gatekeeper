@@ -407,7 +407,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 <DialogContent className="bg-zinc-950 border-zinc-800 sm:max-w-xl">
                   <DialogHeader>
                     <DialogTitle className="text-zinc-100">Create New API Key</DialogTitle>
-                    <DialogDescription className="text-zinc-400">Give your key a descriptive name. You will only see the secret key once.</DialogDescription>
+                    <DialogDescription className="text-zinc-400">Give your key a descriptive name.</DialogDescription>
                   </DialogHeader>
                   
                   {!createdKey ? (
@@ -433,7 +433,6 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   ) : (
                     <div className="space-y-4 py-4">
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                        <p className="text-sm font-medium text-emerald-400 mb-2">Please copy your secret key now. You won&apos;t be able to see it again!</p>
                         <div className="flex items-center space-x-2">
                           <code className="block flex-1 min-w-0 bg-black p-2 rounded text-zinc-300 border border-zinc-800 break-all text-sm">{createdKey}</code>
                           <Button variant="outline" size="icon" onClick={() => handleCopy(createdKey)} className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:text-zinc-100 shrink-0">
@@ -466,7 +465,14 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     <TableRow key={key.id} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                       <TableCell className="font-medium text-zinc-200">{key.name}</TableCell>
                       <TableCell className="text-zinc-400 text-sm">{key.user?.displayName || 'Unknown'}</TableCell>
-                      <TableCell className="font-mono text-zinc-400 text-sm">{key.keyPrefix}••••••••</TableCell>
+                      <TableCell className="font-mono text-zinc-400 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <span>{key.keyPrefix}••••••••</span>
+                          <Button variant="ghost" size="icon" onClick={() => handleCopy(key.key)} className="h-6 w-6 text-zinc-500 hover:text-zinc-300 cursor-pointer">
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-zinc-500 text-sm">{new Date(key.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <Button 
@@ -510,22 +516,22 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 </div>
               ) : (
                 <>
-                  <div className="max-w-xs space-y-2">
+                  <div className="w-full max-w-sm space-y-2">
                     <Label className="text-zinc-300">Select Tool</Label>
                     <Select value={selectedTool} onValueChange={(val) => {
                       if (val === 'vscode' || val === 'cursor' || val === 'shell' || val === 'python' || val === 'node') {
                         setSelectedTool(val);
                       }
                     }}>
-                      <SelectTrigger className="bg-black/40 border-zinc-700 text-zinc-100">
+                      <SelectTrigger className="w-full bg-black/40 border-zinc-700 text-zinc-100">
                         <SelectValue placeholder="Select a tool" />
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                        <SelectItem value="cursor">Cursor IDE</SelectItem>
                         <SelectItem value="vscode">VS Code (Continue)</SelectItem>
-                        <SelectItem value="shell">Terminal Shell</SelectItem>
-                        <SelectItem value="python">Python SDK</SelectItem>
-                        <SelectItem value="node">Node.js SDK</SelectItem>
+                        <SelectItem value="cursor" disabled>Cursor IDE (Unsupported)</SelectItem>
+                        <SelectItem value="shell" disabled>Terminal Shell (Unsupported)</SelectItem>
+                        <SelectItem value="python" disabled>Python SDK (Unsupported)</SelectItem>
+                        <SelectItem value="node" disabled>Node.js SDK (Unsupported)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -560,32 +566,28 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <CardContent>
                 <div className="space-y-4 max-w-md">
                   <div className="space-y-2">
-                    <Label htmlFor="openaiApiKey" className="text-zinc-300">OpenAI API Key</Label>
+                    <Label htmlFor="openaiApiKey" className="text-zinc-500">OpenAI API Key (Unsupported)</Label>
                     <Input 
                       id="openaiApiKey" 
                       type="password"
-                      placeholder={project?.openaiApiKey ? '••••••••••••••' : 'sk-...'} 
-                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
-                      value={openaiKeyInput}
-                      onChange={(e) => setOpenaiKeyInput(e.target.value)}
+                      placeholder="Unsupported" 
+                      className="bg-black/20 border-zinc-800 text-zinc-600 font-mono cursor-not-allowed"
+                      value=""
+                      onChange={() => {}}
+                      disabled
                     />
-                    {project?.openaiApiKey && !openaiKeyInput && (
-                      <p className="text-xs text-zinc-500 mt-1">A key is currently configured: {project.openaiApiKey}</p>
-                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="anthropicApiKey" className="text-zinc-300">Anthropic API Key</Label>
+                    <Label htmlFor="anthropicApiKey" className="text-zinc-500">Anthropic API Key (Unsupported)</Label>
                     <Input 
                       id="anthropicApiKey" 
                       type="password"
-                      placeholder={project?.anthropicApiKey ? '••••••••••••••' : 'sk-ant-...'} 
-                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
-                      value={anthropicKeyInput}
-                      onChange={(e) => setAnthropicKeyInput(e.target.value)}
+                      placeholder="Unsupported" 
+                      className="bg-black/20 border-zinc-800 text-zinc-600 font-mono cursor-not-allowed"
+                      value=""
+                      onChange={() => {}}
+                      disabled
                     />
-                    {project?.anthropicApiKey && !anthropicKeyInput && (
-                      <p className="text-xs text-zinc-500 mt-1">A key is currently configured: {project.anthropicApiKey}</p>
-                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="googleApiKey" className="text-zinc-300">Google Gemini API Key</Label>
@@ -597,9 +599,6 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                       value={googleKeyInput}
                       onChange={(e) => setGoogleKeyInput(e.target.value)}
                     />
-                    {project?.googleApiKey && !googleKeyInput && (
-                      <p className="text-xs text-zinc-500 mt-1">A key is currently configured: {project.googleApiKey}</p>
-                    )}
                   </div>
                   <Button 
                     onClick={() => updateProviderKeysMutation.mutate({ 

@@ -58,7 +58,7 @@ export const apiKeys = pgTable('api_keys', {
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  keyHash: text('key_hash').notNull().unique(),
+  key: text('key').notNull().unique(),
   keyPrefix: text('key_prefix').notNull(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

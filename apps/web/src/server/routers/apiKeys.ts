@@ -29,6 +29,7 @@ export const apiKeysRouter = router({
       projectId: apiKeys.projectId,
       userId: apiKeys.userId,
       name: apiKeys.name,
+      key: apiKeys.key,
       keyPrefix: apiKeys.keyPrefix,
       createdAt: apiKeys.createdAt,
       userDisplayName: users.displayName,
@@ -42,6 +43,7 @@ export const apiKeysRouter = router({
       projectId: k.projectId,
       userId: k.userId,
       name: k.name,
+      key: k.key,
       keyPrefix: k.keyPrefix,
       createdAt: k.createdAt,
       user: {
@@ -69,14 +71,13 @@ export const apiKeysRouter = router({
       }
 
       const rawKey = `gk_${crypto.randomBytes(24).toString('hex')}`;
-      const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
       const keyPrefix = rawKey.substring(0, 7);
 
       const [newKey] = await db.insert(apiKeys).values({
         projectId: input.projectId,
         userId: ctx.user.id,
         name: input.name,
-        keyHash,
+        key: rawKey,
         keyPrefix,
       }).returning();
 
