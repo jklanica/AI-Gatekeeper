@@ -1,0 +1,65 @@
+import { pgTable, uuid, text, timestamp, integer, numeric, smallint, primaryKey, index } from 'drizzle-orm/pg-core';
+import { sql, desc } from 'drizzle-orm';
+
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const projects = pgTable('projects', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const projectMembers = pgTable('project_members', {
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('member'), // check in code or migrations
+  tags: text('tags').array().notNull().default(sql`ARRAY[]::text[]`),
+  joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.projectId, t.userId] }),
+}));
+
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  keyHash: text('key_hash').notNull().unique(),
+  keyPrefix: text('key_prefix').notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const usageEvents = pgTable('usage_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  userId: uuid('user_id').references(() => users.id),
+  apiKeyId: uuid('api_key_id').notNull().references(() => apiKeys.id),
+  model: text('model').notNull(),
+  provider: text('provider').notNull(),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  costUsd: numeric('cost_usd', { precision: 10, scale: 6 }),
+  latencyMs: integer('latency_ms'),
+  httpStatus: smallint('http_status'),
+  userTags: text('user_tags').array().notNull().default(sql`ARRAY[]::text[]`),
+  timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  projectTimestampIdx: index('usage_events_project_timestamp_idx').on(t.projectId, t.timestamp),
+  userTimestampIdx: index('usage_events_user_timestamp_idx').on(t.userId, t.timestamp),
+}));
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  token: uuid('token').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
