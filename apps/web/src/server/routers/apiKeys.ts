@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db, apiKeys, projectMembers } from '@ai-gatekeeper/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
 
@@ -11,7 +11,7 @@ export const apiKeysRouter = router({
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
     // Note: In reality, we might join usage_events to calculate lastUsed. For now, just return db rows.
-    const keys = await db.select().from(apiKeys).where(eq(apiKeys.projectId, input.projectId));
+    const keys = await db.select().from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), isNull(apiKeys.revokedAt)));
     return keys.map(k => ({ ...k, lastUsed: k.createdAt })); // Mocking lastUsed with createdAt for now
   }),
   create: protectedProcedure
@@ -19,6 +19,11 @@ export const apiKeysRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
       if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      const [existingKey] = await db.select().from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), eq(apiKeys.name, input.name))).limit(1);
+      if (existingKey) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'An API key with this name already exists in this project' });
+      }
 
       const rawKey = `gk_${crypto.randomBytes(24).toString('hex')}`;
       const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');

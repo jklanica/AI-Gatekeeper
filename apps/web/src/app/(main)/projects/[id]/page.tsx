@@ -36,9 +36,20 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
 
+  const revokeKeyMutation = trpc.apiKeys.revoke.useMutation({
+    onSuccess: () => {
+      refetchKeys();
+      toast.success('API Key revoked');
+    },
+    onError: (err) => toast.error(err.message || 'Failed to revoke API key')
+  });
+
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  
   const createKeyMutation = trpc.apiKeys.create.useMutation({
     onSuccess: (data) => {
       setCreatedKey(data.rawKey);
+      setNewKeyName('');
       refetchKeys();
       toast.success('API Key created!');
     }
@@ -331,11 +342,18 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 <CardDescription className="text-zinc-400">Keys used to route requests through the proxy.</CardDescription>
               </div>
               
-              <Dialog>
+              <Dialog open={isApiKeyModalOpen} onOpenChange={(open) => {
+                setIsApiKeyModalOpen(open);
+                if (!open) {
+                  // Clean up when closing modal
+                  setCreatedKey(null);
+                  setNewKeyName('');
+                }
+              }}>
                 <DialogTrigger render={<Button className="bg-emerald-500 hover:bg-emerald-600 text-black" />}>
                   <Plus className="w-4 h-4 mr-2"/> Create Key
                 </DialogTrigger>
-                <DialogContent className="bg-zinc-950 border-zinc-800">
+                <DialogContent className="bg-zinc-950 border-zinc-800 sm:max-w-xl">
                   <DialogHeader>
                     <DialogTitle className="text-zinc-100">Create New API Key</DialogTitle>
                     <DialogDescription className="text-zinc-400">Give your key a descriptive name. You will only see the secret key once.</DialogDescription>
@@ -366,13 +384,16 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                         <p className="text-sm font-medium text-emerald-400 mb-2">Please copy your secret key now. You won't be able to see it again!</p>
                         <div className="flex items-center space-x-2">
-                          <code className="flex-1 bg-black p-2 rounded text-zinc-300 border border-zinc-800 overflow-x-auto text-sm">{createdKey}</code>
-                          <Button variant="outline" size="icon" onClick={() => handleCopy(createdKey)} className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:text-zinc-100">
+                          <code className="block flex-1 min-w-0 bg-black p-2 rounded text-zinc-300 border border-zinc-800 break-all text-sm">{createdKey}</code>
+                          <Button variant="outline" size="icon" onClick={() => handleCopy(createdKey)} className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:text-zinc-100 shrink-0">
                             <Copy className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                      <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100" onClick={() => setCreatedKey(null)}>Done</Button>
+                      <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100" onClick={() => {
+                        setCreatedKey(null);
+                        setIsApiKeyModalOpen(false);
+                      }}>Done</Button>
                     </div>
                   )}
                 </DialogContent>
@@ -395,7 +416,15 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                       <TableCell className="font-mono text-zinc-400 text-sm">{key.keyPrefix}••••••••</TableCell>
                       <TableCell className="text-zinc-500 text-sm">{new Date(key.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300 hover:bg-red-400/10">Revoke</Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-400 hover:text-red-300 hover:bg-red-400/10 cursor-pointer"
+                          onClick={() => revokeKeyMutation.mutate({ id: key.id })}
+                          disabled={revokeKeyMutation.isPending}
+                        >
+                          Revoke
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
