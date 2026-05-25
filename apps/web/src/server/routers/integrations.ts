@@ -40,7 +40,7 @@ export const integrationsRouter = router({
         .limit(1);
 
       const baseUrl = process.env.PROXY_BASE_URL || 'https://prism.yourcompany.com/proxy/v1';
-      const keyDisplay = userKey ? `${userKey.keyPrefix}••••••••` : '<create an API key first>';
+      const keyDisplay = '<YOUR_VIRTUAL_API_KEY>';
       
       switch (input.tool) {
         case 'vscode':

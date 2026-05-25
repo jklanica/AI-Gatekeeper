@@ -16,6 +16,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Copy, Plus, Key, Users, Activity, Settings, TerminalSquare, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 /**
  * ProjectDetailsPage Component
@@ -149,6 +151,8 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  const [activeTab, setActiveTab] = useState('overview');
+
   if (loadingProject) return <div className="text-zinc-400">Loading project...</div>;
 
   return (
@@ -160,7 +164,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-900/50 border border-zinc-800 text-zinc-400 flex w-full justify-start overflow-x-auto h-auto p-1 no-scrollbar">
           <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Activity className="w-4 h-4 mr-2"/> Overview</TabsTrigger>
           <TabsTrigger value="members" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Users className="w-4 h-4 mr-2"/> Members</TabsTrigger>
@@ -490,36 +494,58 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <CardDescription className="text-zinc-400">Configure your development environment to use the proxy.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="max-w-xs space-y-2">
-                <Label className="text-zinc-300">Select Tool</Label>
-                <Select value={selectedTool} onValueChange={(val) => {
-                  if (val === 'vscode' || val === 'cursor' || val === 'shell' || val === 'python' || val === 'node') {
-                    setSelectedTool(val);
-                  }
-                }}>
-                  <SelectTrigger className="bg-black/40 border-zinc-700 text-zinc-100">
-                    <SelectValue placeholder="Select a tool" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                    <SelectItem value="cursor">Cursor IDE</SelectItem>
-                    <SelectItem value="vscode">VS Code (Continue)</SelectItem>
-                    <SelectItem value="shell">Terminal Shell</SelectItem>
-                    <SelectItem value="python">Python SDK</SelectItem>
-                    <SelectItem value="node">Node.js SDK</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="relative">
-                <div className="absolute right-2 top-2 sm:right-4 sm:top-4">
-                  <Button variant="outline" size="sm" onClick={() => handleCopy(configSnippet || '')} className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300">
-                    <Copy className="h-4 w-4 mr-2" /> Copy
+              {apiKeys && apiKeys.filter(k => k.userId === me?.id).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-zinc-400 space-y-4">
+                  <Key className="w-12 h-12 text-zinc-600" />
+                  <p>You don't have an API key yet.</p>
+                  <Button 
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
+                    onClick={() => {
+                      setActiveTab('apikeys');
+                      setIsApiKeyModalOpen(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2"/> Create API Key
                   </Button>
                 </div>
-                <pre className="bg-black/60 border border-zinc-800 rounded-xl p-4 sm:p-6 pt-14 sm:pt-6 text-sm text-zinc-300 overflow-x-auto">
-                  <code>{configSnippet || 'Loading config...'}</code>
-                </pre>
-              </div>
+              ) : (
+                <>
+                  <div className="max-w-xs space-y-2">
+                    <Label className="text-zinc-300">Select Tool</Label>
+                    <Select value={selectedTool} onValueChange={(val) => {
+                      if (val === 'vscode' || val === 'cursor' || val === 'shell' || val === 'python' || val === 'node') {
+                        setSelectedTool(val);
+                      }
+                    }}>
+                      <SelectTrigger className="bg-black/40 border-zinc-700 text-zinc-100">
+                        <SelectValue placeholder="Select a tool" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                        <SelectItem value="cursor">Cursor IDE</SelectItem>
+                        <SelectItem value="vscode">VS Code (Continue)</SelectItem>
+                        <SelectItem value="shell">Terminal Shell</SelectItem>
+                        <SelectItem value="python">Python SDK</SelectItem>
+                        <SelectItem value="node">Node.js SDK</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="relative rounded-xl border border-zinc-800 bg-black/60 overflow-hidden">
+                    <div className="absolute right-2 top-2 z-10">
+                      <Button variant="outline" size="sm" onClick={() => handleCopy(configSnippet || '')} className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer">
+                        <Copy className="h-4 w-4 mr-2" /> Copy
+                      </Button>
+                    </div>
+                    <SyntaxHighlighter
+                      language={selectedTool === 'vscode' ? 'json' : selectedTool === 'shell' ? 'bash' : selectedTool === 'python' ? 'python' : selectedTool === 'node' ? 'javascript' : 'markdown'}
+                      style={vscDarkPlus}
+                      customStyle={{ margin: 0, background: 'transparent', padding: '1.5rem', paddingTop: '3.5rem', fontSize: '0.875rem' }}
+                    >
+                      {configSnippet || 'Loading config...'}
+                    </SyntaxHighlighter>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
