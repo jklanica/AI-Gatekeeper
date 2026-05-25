@@ -56,7 +56,7 @@ export const projectMembers = pgTable('project_members', {
 export const apiKeys = pgTable('api_keys', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   keyHash: text('key_hash').notNull().unique(),
   keyPrefix: text('key_prefix').notNull(),
@@ -73,7 +73,7 @@ export const apiKeys = pgTable('api_keys', {
 export const usageEvents = pgTable('usage_events', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
-  userId: uuid('user_id').references(() => users.id),
+  userId: uuid('user_id').notNull().references(() => users.id),
   apiKeyId: uuid('api_key_id').notNull().references(() => apiKeys.id),
   model: text('model').notNull(),
   provider: text('provider').notNull(),

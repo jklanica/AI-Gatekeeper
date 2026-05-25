@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
-import { db, apiKeys, projectMembers } from '@ai-gatekeeper/db';
+import { db, apiKeys, projectMembers, users } from '@ai-gatekeeper/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
@@ -20,6 +20,10 @@ export const apiKeysRouter = router({
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
+    const condition = (membership.role === 'owner' || membership.role === 'admin')
+      ? and(eq(apiKeys.projectId, input.projectId), isNull(apiKeys.revokedAt))
+      : and(eq(apiKeys.projectId, input.projectId), eq(apiKeys.userId, ctx.user.id), isNull(apiKeys.revokedAt));
+
     const keys = await db.select({
       id: apiKeys.id,
       projectId: apiKeys.projectId,
@@ -27,8 +31,25 @@ export const apiKeysRouter = router({
       name: apiKeys.name,
       keyPrefix: apiKeys.keyPrefix,
       createdAt: apiKeys.createdAt,
-    }).from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), isNull(apiKeys.revokedAt)));
-    return keys.map(k => ({ ...k, lastUsed: k.createdAt }));
+      userDisplayName: users.displayName,
+      userEmail: users.email,
+    }).from(apiKeys)
+      .innerJoin(users, eq(apiKeys.userId, users.id))
+      .where(condition);
+      
+    return keys.map(k => ({ 
+      id: k.id,
+      projectId: k.projectId,
+      userId: k.userId,
+      name: k.name,
+      keyPrefix: k.keyPrefix,
+      createdAt: k.createdAt,
+      user: {
+        displayName: k.userDisplayName,
+        email: k.userEmail,
+      },
+      lastUsed: k.createdAt 
+    }));
   }),
 
   /**
@@ -75,10 +96,15 @@ export const apiKeysRouter = router({
       const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, input.id)).limit(1);
       if (!key) throw new TRPCError({ code: 'NOT_FOUND', message: 'API key not found' });
 
-      // Verify the user is an owner or admin of the key's project
+      // Verify the user is an owner or admin of the key's project, or revoking their own key
       const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, key.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
-      if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Only project owners and admins can revoke keys' });
+      
+      if (!membership) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Not a member of this project' });
+      }
+
+      if (membership.role !== 'owner' && membership.role !== 'admin' && key.userId !== ctx.user.id) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'You can only revoke your own API keys' });
       }
 
       await db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.id, input.id));

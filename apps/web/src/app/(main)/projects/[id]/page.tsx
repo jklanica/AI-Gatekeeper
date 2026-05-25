@@ -451,6 +451,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 <TableHeader>
                   <TableRow className="border-zinc-800 hover:bg-transparent">
                     <TableHead className="text-zinc-400">Name</TableHead>
+                    <TableHead className="text-zinc-400">Owner</TableHead>
                     <TableHead className="text-zinc-400">Prefix</TableHead>
                     <TableHead className="text-zinc-400">Created</TableHead>
                     <TableHead className="text-right text-zinc-400">Actions</TableHead>
@@ -460,6 +461,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   {apiKeys?.map((key) => (
                     <TableRow key={key.id} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                       <TableCell className="font-medium text-zinc-200">{key.name}</TableCell>
+                      <TableCell className="text-zinc-400 text-sm">{key.user?.displayName || 'Unknown'}</TableCell>
                       <TableCell className="font-mono text-zinc-400 text-sm">{key.keyPrefix}••••••••</TableCell>
                       <TableCell className="text-zinc-500 text-sm">{new Date(key.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
