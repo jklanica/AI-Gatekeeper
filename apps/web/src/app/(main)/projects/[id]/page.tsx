@@ -161,24 +161,31 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             </CardHeader>
             <CardContent>
               <div className="h-[300px] w-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={timeline}>
-                    <defs>
-                      <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                      itemStyle={{ color: '#10b981' }}
-                    />
-                    <Area type="monotone" dataKey="tokens" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {timeline && timeline.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={timeline}>
+                      <defs>
+                        <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                      <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
+                        itemStyle={{ color: '#10b981' }}
+                      />
+                      <Area type="monotone" dataKey="tokens" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 space-y-3 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
+                    <Activity className="w-8 h-8 text-zinc-700" />
+                    <p className="text-sm">No usage data available for this period.</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
