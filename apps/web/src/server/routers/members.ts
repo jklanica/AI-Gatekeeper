@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db, projectMembers, users } from '@ai-gatekeeper/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 export const membersRouter = router({
@@ -9,17 +9,28 @@ export const membersRouter = router({
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
+    // Get 30-day usage per member with a subquery
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     const rows = await db.select({
       userId: users.id,
       name: users.displayName,
       role: projectMembers.role,
       tags: projectMembers.tags,
+      usage: sql<number>`COALESCE((
+        SELECT SUM(input_tokens + output_tokens)::int 
+        FROM usage_events 
+        WHERE usage_events.user_id = ${users.id} 
+          AND usage_events.project_id = ${projectMembers.projectId}
+          AND usage_events.timestamp >= ${thirtyDaysAgo.toISOString()}
+      ), 0)`,
     })
     .from(projectMembers)
     .innerJoin(users, eq(users.id, projectMembers.userId))
     .where(eq(projectMembers.projectId, input.projectId));
     
-    return rows.map(r => ({ ...r, usage: 0 }));
+    return rows;
   }),
   add: protectedProcedure
     .input(z.object({ 
@@ -88,10 +99,11 @@ export const membersRouter = router({
       if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
 
       if (input.role === 'owner') {
-        // Upgrade target to owner
-        await db.update(projectMembers).set({ role: 'owner' }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
-        // Downgrade current user to admin
-        await db.update(projectMembers).set({ role: 'admin' }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id)));
+        // Wrap in transaction to prevent two-owner state on crash
+        await db.transaction(async (tx) => {
+          await tx.update(projectMembers).set({ role: 'owner' }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
+          await tx.update(projectMembers).set({ role: 'admin' }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id)));
+        });
       } else {
         await db.update(projectMembers).set({ role: input.role }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
       }

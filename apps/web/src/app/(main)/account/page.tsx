@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+
 import { trpc } from '@/trpc/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,7 @@ import { toast } from 'sonner';
 import { User } from 'lucide-react';
 
 export default function AccountPage() {
-  const router = useRouter();
-  
+
   const { data: user, isLoading, refetch } = trpc.auth.me.useQuery();
   
   const [displayName, setDisplayName] = useState('');
@@ -20,9 +19,10 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (user?.displayName) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayName(user.displayName);
     }
-  }, [user]);
+  }, [user?.displayName]);
 
   const updateMutation = trpc.auth.updateProfile.useMutation({
     onSuccess: () => {

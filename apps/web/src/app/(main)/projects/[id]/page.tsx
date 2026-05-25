@@ -31,7 +31,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const canAddMember = myRole === 'owner' || myRole === 'admin';
   
   const [selectedTool, setSelectedTool] = useState<'vscode' | 'cursor' | 'shell' | 'python' | 'node'>('cursor');
-  const { data: configSnippet } = trpc.integrations.getConfig.useQuery({ tool: selectedTool });
+  const { data: configSnippet } = trpc.integrations.getConfig.useQuery({ tool: selectedTool, projectId: id });
 
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
@@ -126,9 +126,13 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
   const [editingTagsUser, setEditingTagsUser] = useState<{ id: string, tags: string } | null>(null);
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
   };
 
   if (loadingProject) return <div className="text-zinc-400">Loading project...</div>;
@@ -156,19 +160,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
               <CardHeader className="pb-2">
                 <CardDescription className="text-zinc-400">Total Requests</CardDescription>
-                <CardTitle className="text-3xl text-zinc-100">{summary?.totalRequests.toLocaleString()}</CardTitle>
+                <CardTitle className="text-3xl text-zinc-100">{(summary?.totalRequests ?? 0).toLocaleString()}</CardTitle>
               </CardHeader>
             </Card>
             <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
               <CardHeader className="pb-2">
                 <CardDescription className="text-zinc-400">Total Tokens</CardDescription>
-                <CardTitle className="text-3xl text-zinc-100">{(summary?.totalTokens! / 1000000).toFixed(2)}M</CardTitle>
+                <CardTitle className="text-3xl text-zinc-100">{((summary?.totalTokens ?? 0) / 1000000).toFixed(2)}M</CardTitle>
               </CardHeader>
             </Card>
             <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
               <CardHeader className="pb-2">
                 <CardDescription className="text-zinc-400">Total Cost</CardDescription>
-                <CardTitle className="text-3xl text-emerald-400">${summary?.totalCost.toFixed(2)}</CardTitle>
+                <CardTitle className="text-3xl text-emerald-400">${(summary?.totalCost ?? 0).toFixed(2)}</CardTitle>
               </CardHeader>
             </Card>
           </div>
@@ -274,7 +278,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         {canEditRole ? (
                           <Select 
                             value={member.role} 
-                            onValueChange={(val: 'owner'|'admin'|'member') => updateRoleMutation.mutate({ projectId: id, userId: member.userId, role: val })}
+                            onValueChange={(val) => {
+                              if (val === 'owner' || val === 'admin' || val === 'member') {
+                                updateRoleMutation.mutate({ projectId: id, userId: member.userId, role: val })
+                              }
+                            }}
                             disabled={updateRoleMutation.isPending}
                           >
                             <SelectTrigger className="w-[110px] h-8 bg-transparent border-zinc-800 focus:ring-0 text-zinc-300">
@@ -407,7 +415,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   ) : (
                     <div className="space-y-4 py-4">
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                        <p className="text-sm font-medium text-emerald-400 mb-2">Please copy your secret key now. You won't be able to see it again!</p>
+                        <p className="text-sm font-medium text-emerald-400 mb-2">Please copy your secret key now. You won&apos;t be able to see it again!</p>
                         <div className="flex items-center space-x-2">
                           <code className="block flex-1 min-w-0 bg-black p-2 rounded text-zinc-300 border border-zinc-800 break-all text-sm">{createdKey}</code>
                           <Button variant="outline" size="icon" onClick={() => handleCopy(createdKey)} className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:text-zinc-100 shrink-0">
@@ -468,7 +476,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <CardContent className="space-y-6">
               <div className="max-w-xs space-y-2">
                 <Label className="text-zinc-300">Select Tool</Label>
-                <Select value={selectedTool} onValueChange={(val: any) => setSelectedTool(val)}>
+                <Select value={selectedTool} onValueChange={(val) => {
+                  if (val === 'vscode' || val === 'cursor' || val === 'shell' || val === 'python' || val === 'node') {
+                    setSelectedTool(val);
+                  }
+                }}>
                   <SelectTrigger className="bg-black/40 border-zinc-700 text-zinc-100">
                     <SelectValue placeholder="Select a tool" />
                   </SelectTrigger>

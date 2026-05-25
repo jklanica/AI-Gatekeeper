@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure, JWT_SECRET } from '../trpc';
 import { db, users, passwordResetTokens } from '@ai-gatekeeper/db';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, lt } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
@@ -87,13 +87,17 @@ export const authRouter = router({
         return { success: true };
       }
 
+      // Clean up expired tokens to prevent table bloat
+      await db.delete(passwordResetTokens).where(lt(passwordResetTokens.expiresAt, new Date()));
+
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
       const [resetToken] = await db.insert(passwordResetTokens).values({
         userId: user.id,
         expiresAt,
       }).returning();
 
-      console.log(`\n========================================\n🔐 PASSWORD RESET LINK (Dev Only):\nhttp://localhost:3000/reset-password?token=${resetToken.token}\n========================================\n`);
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      console.log(`\n========================================\n🔐 PASSWORD RESET LINK (Dev Only):\n${appUrl}/reset-password?token=${resetToken.token}\n========================================\n`);
 
       return { success: true };
     }),
@@ -126,7 +130,7 @@ export const authRouter = router({
   updateProfile: protectedProcedure
     .input(z.object({ displayName: z.string(), password: z.string().min(6, 'Password must be at least 6 characters').optional() }))
     .mutation(async ({ input, ctx }) => {
-      const updates: any = { displayName: input.displayName };
+      const updates: Partial<{ displayName: string; passwordHash: string }> = { displayName: input.displayName };
       
       if (input.password) {
         updates.passwordHash = await bcrypt.hash(input.password, 10);

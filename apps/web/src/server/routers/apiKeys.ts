@@ -10,15 +10,21 @@ export const apiKeysRouter = router({
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-    // Note: In reality, we might join usage_events to calculate lastUsed. For now, just return db rows.
-    const keys = await db.select().from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), isNull(apiKeys.revokedAt)));
-    return keys.map(k => ({ ...k, lastUsed: k.createdAt })); // Mocking lastUsed with createdAt for now
+    const keys = await db.select({
+      id: apiKeys.id,
+      projectId: apiKeys.projectId,
+      userId: apiKeys.userId,
+      name: apiKeys.name,
+      keyPrefix: apiKeys.keyPrefix,
+      createdAt: apiKeys.createdAt,
+    }).from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), isNull(apiKeys.revokedAt)));
+    return keys.map(k => ({ ...k, lastUsed: k.createdAt }));
   }),
   create: protectedProcedure
     .input(z.object({ projectId: z.string(), name: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
-      if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
+      if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Not a member of this project' });
 
       const [existingKey] = await db.select().from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), eq(apiKeys.name, input.name))).limit(1);
       if (existingKey) {
@@ -42,7 +48,16 @@ export const apiKeysRouter = router({
   revoke: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      // For simplicity, just revoke if user is authenticated (ideally verify project role)
+      // Look up the key to find its project
+      const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, input.id)).limit(1);
+      if (!key) throw new TRPCError({ code: 'NOT_FOUND', message: 'API key not found' });
+
+      // Verify the user is an owner or admin of the key's project
+      const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, key.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
+      if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Only project owners and admins can revoke keys' });
+      }
+
       await db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.id, input.id));
       return { success: true };
     }),

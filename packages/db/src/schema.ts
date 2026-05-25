@@ -23,7 +23,7 @@ export const projects = pgTable('projects', {
 export const projectMembers = pgTable('project_members', {
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  role: text('role').notNull().default('member'), // check in code or migrations
+  role: text('role').notNull().default('member'), // Valid values: 'owner' | 'admin' | 'member'
   tags: text('tags').array().notNull().default(sql`ARRAY[]::text[]`),
   joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({

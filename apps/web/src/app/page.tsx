@@ -1,5 +1,13 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
-export default function Home() {
+export default async function Home() {
+  const cookieStore = await cookies();
+  const authToken = cookieStore.get('auth_token');
+  
+  if (authToken?.value) {
+    redirect('/dashboard');
+  }
+  
   redirect('/login');
 }

@@ -6,7 +6,11 @@ import { jwtVerify } from 'jose';
 import { db, users } from '@ai-gatekeeper/db';
 import { eq } from 'drizzle-orm';
 
-export const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'super-secret-jwt-key');
+const jwtSecretRaw = process.env.JWT_SECRET;
+if (!jwtSecretRaw) {
+  throw new Error('JWT_SECRET environment variable is required. Set it to a random 32+ character string.');
+}
+export const JWT_SECRET = new TextEncoder().encode(jwtSecretRaw);
 
 export const t = initTRPC.create({
   transformer: superjson,
@@ -47,7 +51,7 @@ export const protectedProcedure = t.procedure.use(async ({ next }) => {
         user,
       },
     });
-  } catch (error) {
+  } catch {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid authentication token' });
   }
 });

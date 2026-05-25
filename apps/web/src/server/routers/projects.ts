@@ -1,18 +1,22 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
-import { db, projects, projectMembers, usageEvents } from '@ai-gatekeeper/db';
+import { db, projects, projectMembers } from '@ai-gatekeeper/db';
 import { eq, and, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 export const projectsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
     const rows = await db.select({
       id: projects.id,
       name: projects.name,
       description: projects.description,
       memberCount: sql<number>`(SELECT COUNT(*)::int FROM project_members WHERE project_id = ${projects.id})`,
-      totalTokens: sql<number>`COALESCE((SELECT SUM(input_tokens + output_tokens)::int FROM usage_events WHERE project_id = ${projects.id}), 0)`,
-      estimatedCost: sql<number>`COALESCE((SELECT SUM(cost_usd)::float FROM usage_events WHERE project_id = ${projects.id}), 0)`,
+      totalTokens: sql<number>`COALESCE((SELECT SUM(input_tokens + output_tokens)::int FROM usage_events WHERE project_id = ${projects.id} AND timestamp >= ${startOfMonth.toISOString()}), 0)`,
+      estimatedCost: sql<number>`COALESCE((SELECT SUM(cost_usd)::float FROM usage_events WHERE project_id = ${projects.id} AND timestamp >= ${startOfMonth.toISOString()}), 0)`,
     })
     .from(projects)
     .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
@@ -26,23 +30,19 @@ export const projectsRouter = router({
 
     const [project] = await db.select().from(projects).where(eq(projects.id, input.id)).limit(1);
     
-    // Mask the provider API keys for security
+    // Mask the provider API keys for security — return a new object to avoid mutating the Drizzle result
     const maskKey = (key: string | null) => {
       if (!key) return null;
       return key.length > 8 ? `${key.substring(0, 4)}••••••••••••••${key.slice(-4)}` : '••••••••••••••';
     };
 
-    if (membership.role === 'owner' || membership.role === 'admin') {
-      project.openaiApiKey = maskKey(project.openaiApiKey);
-      project.anthropicApiKey = maskKey(project.anthropicApiKey);
-      project.googleApiKey = maskKey(project.googleApiKey);
-    } else {
-      project.openaiApiKey = null;
-      project.anthropicApiKey = null;
-      project.googleApiKey = null;
-    }
-    
-    return project;
+    const isPrivileged = membership.role === 'owner' || membership.role === 'admin';
+    return {
+      ...project,
+      openaiApiKey: isPrivileged ? maskKey(project.openaiApiKey) : null,
+      anthropicApiKey: isPrivileged ? maskKey(project.anthropicApiKey) : null,
+      googleApiKey: isPrivileged ? maskKey(project.googleApiKey) : null,
+    };
   }),
   create: protectedProcedure
     .input(z.object({ name: z.string().min(1), description: z.string().optional() }))
@@ -73,7 +73,7 @@ export const projectsRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Only owners and admins can update provider API keys' });
       }
       
-      const updateData: any = {};
+      const updateData: Partial<{ openaiApiKey: string | null; anthropicApiKey: string | null; googleApiKey: string | null }> = {};
       // If the field is passed as empty string, we set it to null to clear it.
       // If it's undefined, it wasn't part of the update.
       if (input.openaiApiKey !== undefined) updateData.openaiApiKey = input.openaiApiKey || null;

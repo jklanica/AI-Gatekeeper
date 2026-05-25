@@ -21,7 +21,7 @@ export default function RegisterPage() {
     onSuccess: (data) => {
       if (data.success) {
         toast.success('Account created successfully');
-        router.push('/login');
+        router.push('/dashboard');
       }
     },
     onError: (error) => {
