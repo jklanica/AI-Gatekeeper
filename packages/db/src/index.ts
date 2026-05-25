@@ -1,3 +1,9 @@
+/**
+ * Database Module Entry Point
+ * 
+ * Initializes and exports the Drizzle ORM client connected to PostgreSQL.
+ * Reuses the database connection in development to prevent connection limits.
+ */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';

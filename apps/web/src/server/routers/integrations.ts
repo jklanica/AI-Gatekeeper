@@ -4,7 +4,19 @@ import { db, apiKeys, projectMembers } from '@ai-gatekeeper/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
+/**
+ * Integrations Router
+ * 
+ * Provides integration instructions and configuration snippets for various
+ * third-party tools (VSCode, Cursor, Shell, etc.) to connect to the proxy.
+ */
 export const integrationsRouter = router({
+  /**
+   * Get Integration Configuration
+   * 
+   * Generates a code snippet or configuration block for a specific tool.
+   * Dynamically injects the user's API key and the proxy base URL.
+   */
   getConfig: protectedProcedure
     .input(z.object({ 
       tool: z.enum(['vscode', 'cursor', 'shell', 'python', 'node']),

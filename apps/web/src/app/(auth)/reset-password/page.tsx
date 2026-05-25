@@ -10,6 +10,14 @@ import { Button } from '@/components/ui/button';
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * ResetPasswordForm Component
+ * 
+ * Inner form component for handling the password reset process.
+ * Extracts the reset token from the URL and submits the new password to the backend.
+ * 
+ * @returns {JSX.Element} The rendered reset password form.
+ */
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -96,6 +104,14 @@ function ResetPasswordForm() {
   );
 }
 
+/**
+ * ResetPasswordPage Component
+ * 
+ * Wraps the ResetPasswordForm in a React Suspense boundary since it depends
+ * on URL search parameters (`useSearchParams`).
+ * 
+ * @returns {JSX.Element} The rendered reset password page wrapper.
+ */
 export default function ResetPasswordPage() {
   return (
     <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl shadow-2xl">

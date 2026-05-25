@@ -4,7 +4,19 @@ import { db, projects, projectMembers } from '@ai-gatekeeper/db';
 import { eq, and, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
+/**
+ * Projects Router
+ * 
+ * Manages project entities including creation, retrieval, updates, and deletion.
+ * Also handles computing aggregate statistics (usage and cost) for projects.
+ */
 export const projectsRouter = router({
+  /**
+   * List Projects
+   * 
+   * Retrieves all projects the current user is a member of.
+   * Includes aggregate statistics for the current month such as total tokens and estimated cost.
+   */
   list: protectedProcedure.query(async ({ ctx }) => {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -24,6 +36,13 @@ export const projectsRouter = router({
     
     return rows;
   }),
+  
+  /**
+   * Get Project Details
+   * 
+   * Retrieves detailed information for a specific project.
+   * Provider API keys are masked for security and only returned to owners/admins.
+   */
   get: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ input, ctx }) => {
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.id), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -44,6 +63,12 @@ export const projectsRouter = router({
       googleApiKey: isPrivileged ? maskKey(project.googleApiKey) : null,
     };
   }),
+
+  /**
+   * Create Project
+   * 
+   * Creates a new project and assigns the current user as its owner.
+   */
   create: protectedProcedure
     .input(z.object({ name: z.string().min(1), description: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
@@ -60,6 +85,13 @@ export const projectsRouter = router({
       });
       return newProject;
     }),
+
+  /**
+   * Update Provider API Keys
+   * 
+   * Allows owners and admins to configure or clear upstream provider API keys 
+   * (e.g., OpenAI, Anthropic, Google) for the project.
+   */
   updateProviderApiKeys: protectedProcedure
     .input(z.object({ 
       id: z.string(), 
@@ -85,6 +117,12 @@ export const projectsRouter = router({
       }
       return { success: true };
     }),
+
+  /**
+   * Delete Project
+   * 
+   * Permanently deletes a project. Restricted to project owners only.
+   */
   delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ input, ctx }) => {
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.id), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (membership?.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });

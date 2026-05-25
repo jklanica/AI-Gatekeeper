@@ -6,6 +6,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Shield, LayoutDashboard, Settings, LogOut, ChevronRight, Menu, X } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 
+/**
+ * Main Authenticated Layout
+ * 
+ * Provides the sidebar navigation, mobile menu, breadcrumbs, and user session management.
+ * Wraps all dashboard and project-specific pages.
+ * 
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - The child page content.
+ * @returns {JSX.Element} The rendered layout structure.
+ */
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();

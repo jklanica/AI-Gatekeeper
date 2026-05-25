@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * LoginPage Component
+ * 
+ * Provides an authentication form for existing users to sign in.
+ * Validates credentials and redirects to the dashboard upon success.
+ * 
+ * @returns {JSX.Element} The rendered login page.
+ */
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');

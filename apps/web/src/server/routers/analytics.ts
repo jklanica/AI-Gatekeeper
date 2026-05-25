@@ -13,7 +13,19 @@ async function requireMembership(projectId: string, userId: string) {
   return membership;
 }
 
+/**
+ * Analytics Router
+ * 
+ * Provides endpoints for retrieving usage and cost analytics for a project.
+ * Supports aggregation over time, by user, and by model.
+ */
 export const analyticsRouter = router({
+  /**
+   * Get Summary Analytics
+   * 
+   * Retrieves high-level usage statistics (requests, tokens, cost) for the project
+   * over a specified number of days (default: 30).
+   */
   summary: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
@@ -30,6 +42,12 @@ export const analyticsRouter = router({
     
     return result || { totalRequests: 0, totalTokens: 0, totalCost: 0 };
   }),
+
+  /**
+   * Get Analytics by User
+   * 
+   * Groups usage and cost metrics by individual users within the project.
+   */
   byUser: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
@@ -48,6 +66,12 @@ export const analyticsRouter = router({
 
     return rows.map(r => ({ ...r, name: r.name || '(Shared Key)' }));
   }),
+
+  /**
+   * Get Analytics by Model
+   * 
+   * Groups usage and cost metrics by the specific LLM model used.
+   */
   byModel: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
@@ -65,6 +89,12 @@ export const analyticsRouter = router({
 
     return rows;
   }),
+
+  /**
+   * Get Analytics Timeline
+   * 
+   * Retrieves daily aggregated usage and cost metrics for time-series charts.
+   */
   timeline: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 

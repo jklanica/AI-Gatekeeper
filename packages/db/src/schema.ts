@@ -1,6 +1,11 @@
 import { pgTable, uuid, text, timestamp, integer, numeric, smallint, primaryKey, index } from 'drizzle-orm/pg-core';
 import { sql, desc } from 'drizzle-orm';
 
+/**
+ * Users Table
+ * 
+ * Stores all user accounts in the system.
+ */
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').notNull().unique(),
@@ -9,6 +14,12 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Projects Table
+ * 
+ * Represents an organization or workspace that can generate API keys.
+ * Holds optional upstream provider credentials.
+ */
 export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
@@ -20,6 +31,12 @@ export const projects = pgTable('projects', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Project Members Table
+ * 
+ * Join table mapping users to projects with specific roles (owner, admin, member)
+ * and optional tracking tags.
+ */
 export const projectMembers = pgTable('project_members', {
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -30,6 +47,12 @@ export const projectMembers = pgTable('project_members', {
   pk: primaryKey({ columns: [t.projectId, t.userId] }),
 }));
 
+/**
+ * API Keys Table
+ * 
+ * Stores hashed representations of proxy access keys.
+ * Includes a readable prefix for identification in the UI.
+ */
 export const apiKeys = pgTable('api_keys', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
@@ -41,6 +64,12 @@ export const apiKeys = pgTable('api_keys', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Usage Events Table
+ * 
+ * Immutable log of all LLM requests routed through the proxy.
+ * Tracks token usage, latency, and estimated cost for analytics.
+ */
 export const usageEvents = pgTable('usage_events', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
@@ -60,6 +89,11 @@ export const usageEvents = pgTable('usage_events', {
   userTimestampIdx: index('usage_events_user_timestamp_idx').on(t.userId, t.timestamp),
 }));
 
+/**
+ * Password Reset Tokens Table
+ * 
+ * Short-lived tokens for authenticating user password reset requests.
+ */
 export const passwordResetTokens = pgTable('password_reset_tokens', {
   token: uuid('token').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

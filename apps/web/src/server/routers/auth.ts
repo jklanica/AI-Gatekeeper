@@ -7,7 +7,17 @@ import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import { TRPCError } from '@trpc/server';
 
+/**
+ * Authentication Router
+ * 
+ * Handles all authentication and user management procedures including
+ * registration, login, logout, password resets, and profile updates.
+ */
 export const authRouter = router({
+  /**
+   * Register a new user
+   * Checks for existing email, hashes password, creates user, and sets auth cookie
+   */
   register: publicProcedure
     .input(z.object({ email: z.string().email(), password: z.string().min(6), displayName: z.string() }))
     .mutation(async ({ input }) => {
@@ -41,6 +51,10 @@ export const authRouter = router({
       return { success: true, user: { id: newUser.id, email: newUser.email, displayName: newUser.displayName } };
     }),
 
+  /**
+   * Authenticate a user
+   * Validates credentials and sets a secure JWT cookie for session management
+   */
   login: publicProcedure
     .input(z.object({ email: z.string().email(), password: z.string() }))
     .mutation(async ({ input }) => {
@@ -72,12 +86,20 @@ export const authRouter = router({
       return { success: true };
     }),
 
+  /**
+   * Log out a user
+   * Clears the authentication token cookie
+   */
   logout: publicProcedure.mutation(async () => {
     const cookieStore = await cookies();
     cookieStore.delete('auth_token');
     return { success: true };
   }),
 
+  /**
+   * Request a password reset
+   * Generates a temporary reset token and logs it (simulating an email send in dev)
+   */
   requestPasswordReset: publicProcedure
     .input(z.object({ email: z.string().email() }))
     .mutation(async ({ input }) => {
@@ -102,6 +124,10 @@ export const authRouter = router({
       return { success: true };
     }),
 
+  /**
+   * Reset a password
+   * Validates the provided reset token and updates the user's password
+   */
   resetPassword: publicProcedure
     .input(z.object({ token: z.string().uuid(), newPassword: z.string().min(6) }))
     .mutation(async ({ input }) => {
@@ -123,10 +149,18 @@ export const authRouter = router({
       return { success: true };
     }),
 
+  /**
+   * Get current user profile
+   * Requires authentication (protected procedure)
+   */
   me: protectedProcedure.query(({ ctx }) => {
     return { id: ctx.user.id, email: ctx.user.email, displayName: ctx.user.displayName };
   }),
 
+  /**
+   * Update user profile
+   * Allows updating display name and/or password. Hashes new password if provided.
+   */
   updateProfile: protectedProcedure
     .input(z.object({ displayName: z.string(), password: z.string().min(6, 'Password must be at least 6 characters').optional() }))
     .mutation(async ({ input, ctx }) => {

@@ -5,7 +5,17 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
 
+/**
+ * API Keys Router
+ * 
+ * Manages gateway API keys for a project, including creation and revocation.
+ */
 export const apiKeysRouter = router({
+  /**
+   * List API Keys
+   * 
+   * Retrieves all active (non-revoked) API keys for a given project.
+   */
   list: protectedProcedure.input(z.object({ projectId: z.string() })).query(async ({ input, ctx }) => {
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -20,6 +30,12 @@ export const apiKeysRouter = router({
     }).from(apiKeys).where(and(eq(apiKeys.projectId, input.projectId), isNull(apiKeys.revokedAt)));
     return keys.map(k => ({ ...k, lastUsed: k.createdAt }));
   }),
+
+  /**
+   * Create API Key
+   * 
+   * Generates a new secure API key, stores its hash, and returns the raw key once.
+   */
   create: protectedProcedure
     .input(z.object({ projectId: z.string(), name: z.string() }))
     .mutation(async ({ input, ctx }) => {
@@ -45,6 +61,13 @@ export const apiKeysRouter = router({
 
       return { id: newKey.id, name: newKey.name, keyPrefix: newKey.keyPrefix, rawKey };
     }),
+
+  /**
+   * Revoke API Key
+   * 
+   * Soft-deletes an API key by setting its revokedAt timestamp.
+   * Only owners and admins can revoke keys.
+   */
   revoke: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {

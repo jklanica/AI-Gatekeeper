@@ -11,6 +11,16 @@ export const metadata: Metadata = {
   description: 'AI Usage Tracker',
 };
 
+/**
+ * Root Application Layout
+ * 
+ * Wraps all pages in the application. Sets up global styles, fonts,
+ * tRPC/React Query providers, and the toast notification system.
+ * 
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - The child page content.
+ * @returns {JSX.Element} The rendered HTML document structure.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

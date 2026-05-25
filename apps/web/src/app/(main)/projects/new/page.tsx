@@ -10,6 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
+/**
+ * NewProjectPage Component
+ * 
+ * Provides a form interface for users to create a new project.
+ * Captures project name and description, and creates it via tRPC.
+ * 
+ * @returns {JSX.Element} The rendered project creation page.
+ */
 export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState('');

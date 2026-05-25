@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * RegisterPage Component
+ * 
+ * Provides a registration form for new users to create an account.
+ * Upon successful creation, the user is redirected to the dashboard.
+ * 
+ * @returns {JSX.Element} The rendered registration page.
+ */
 export default function RegisterPage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState('');

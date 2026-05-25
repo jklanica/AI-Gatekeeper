@@ -10,6 +10,14 @@ import { Button } from '@/components/ui/button';
 import { KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * ForgotPasswordPage Component
+ * 
+ * Allows users to request a password reset link by providing their email address.
+ * Simulates email delivery via server console logging in development.
+ * 
+ * @returns {JSX.Element} The rendered forgot password page.
+ */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   

@@ -8,6 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Users, Zap, DollarSign } from 'lucide-react';
 
+/**
+ * DashboardPage Component
+ * 
+ * The main landing view after authentication. Displays a grid of
+ * all projects the user has access to, along with high-level stats
+ * (members, tokens, cost) for each.
+ * 
+ * @returns {JSX.Element} The rendered dashboard.
+ */
 export default function DashboardPage() {
   const router = useRouter();
   const { data: projects, isLoading } = trpc.projects.list.useQuery();

@@ -17,6 +17,20 @@ import { Copy, Plus, Key, Users, Activity, Settings, TerminalSquare, MoreHorizon
 import { toast } from 'sonner';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+/**
+ * ProjectDetailsPage Component
+ * 
+ * Main interface for managing a specific project. Includes tabs for:
+ * - Overview (Usage analytics and cost charts)
+ * - Members (Role management, tags, and member removal)
+ * - API Keys (Virtual key generation and revocation)
+ * - Setup (Integration snippets for tools like VSCode, Cursor)
+ * - Settings (Upstream provider credentials; owner-only)
+ * 
+ * @param {Object} props - Component properties.
+ * @param {Promise<{ id: string }>} props.params - Dynamic route parameters.
+ * @returns {JSX.Element} The rendered project details page.
+ */
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   

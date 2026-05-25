@@ -1,5 +1,14 @@
 import React from 'react';
-
+/**
+ * Auth Layout
+ * 
+ * Provides a common gradient background and centered container for all
+ * authentication pages (login, register, forgot/reset password).
+ * 
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - The child auth component.
+ * @returns {JSX.Element} The rendered layout structure.
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-4">

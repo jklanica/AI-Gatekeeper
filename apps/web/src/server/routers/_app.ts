@@ -6,7 +6,15 @@ import { apiKeysRouter } from './apiKeys';
 import { analyticsRouter } from './analytics';
 import { integrationsRouter } from './integrations';
 
+/**
+ * Main Application Router
+ * 
+ * Root tRPC router that merges all sub-routers into a single API surface.
+ */
 export const appRouter = router({
+  /**
+   * Health Check Endpoint
+   */
   health: publicProcedure.query(() => {
     return { status: 'ok' };
   }),

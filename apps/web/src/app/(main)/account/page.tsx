@@ -10,13 +10,23 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { User } from 'lucide-react';
 
+/**
+ * AccountPage Component
+ * 
+ * Renders the user account settings page where users can update their
+ * profile information (e.g., display name) and security credentials (e.g., password).
+ * 
+ * @returns {JSX.Element} The rendered account settings page.
+ */
 export default function AccountPage() {
 
+  // Fetch current user data from the backend
   const { data: user, isLoading, refetch } = trpc.auth.me.useQuery();
   
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
 
+  // Synchronize local state with fetched user data
   useEffect(() => {
     if (user?.displayName) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -24,6 +34,7 @@ export default function AccountPage() {
     }
   }, [user?.displayName]);
 
+  // Mutation for updating user profile and credentials
   const updateMutation = trpc.auth.updateProfile.useMutation({
     onSuccess: () => {
       toast.success('Account updated successfully');
@@ -47,7 +58,12 @@ export default function AccountPage() {
       <Card className="border-zinc-800 bg-zinc-900/50 shadow-xl backdrop-blur-xl">
         <form onSubmit={(e) => {
           e.preventDefault();
-          updateMutation.mutate({ displayName: displayName || user?.displayName || '', password: password || undefined });
+          // Trigger profile update mutation with current local state
+          // Fallback to existing display name if local state is unexpectedly empty
+          updateMutation.mutate({ 
+            displayName: displayName || user?.displayName || '', 
+            password: password || undefined 
+          });
         }}>
         <CardHeader>
           <div className="flex items-center space-x-4">

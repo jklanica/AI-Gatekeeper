@@ -4,7 +4,18 @@ import { db, projectMembers, users } from '@ai-gatekeeper/db';
 import { eq, and, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
+/**
+ * Members Router
+ * 
+ * Manages project memberships, roles, tags, and computes per-member usage.
+ */
 export const membersRouter = router({
+  /**
+   * List Project Members
+   * 
+   * Retrieves all members of a project along with their roles, tags, 
+   * and usage statistics for the last 30 days.
+   */
   list: protectedProcedure.input(z.object({ projectId: z.string() })).query(async ({ input, ctx }) => {
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -32,6 +43,12 @@ export const membersRouter = router({
     
     return rows;
   }),
+
+  /**
+   * Add Member
+   * 
+   * Adds a new user to the project by email with a 'member' role and optional tags.
+   */
   add: protectedProcedure
     .input(z.object({ 
       projectId: z.string(), 
@@ -56,6 +73,12 @@ export const membersRouter = router({
       });
       return { success: true };
     }),
+
+  /**
+   * Remove Member
+   * 
+   * Removes a user from the project. Validates permissions and prevents self-removal.
+   */
   remove: protectedProcedure
     .input(z.object({ projectId: z.string(), userId: z.string() }))
     .mutation(async ({ input, ctx }) => {
@@ -74,6 +97,12 @@ export const membersRouter = router({
       await db.delete(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
       return { success: true };
     }),
+
+  /**
+   * Update Member Tags
+   * 
+   * Modifies the metadata tags associated with a member's role in the project.
+   */
   updateTags: protectedProcedure
     .input(z.object({ projectId: z.string(), userId: z.string(), tags: z.array(z.string()) }))
     .mutation(async ({ input, ctx }) => {
@@ -90,6 +119,12 @@ export const membersRouter = router({
       await db.update(projectMembers).set({ tags: input.tags }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
       return { success: true };
     }),
+
+  /**
+   * Update Member Role
+   * 
+   * Changes a member's permission level. Handles owner transfers safely within a transaction.
+   */
   updateRole: protectedProcedure
     .input(z.object({ projectId: z.string(), userId: z.string(), role: z.enum(['owner', 'admin', 'member']) }))
     .mutation(async ({ input, ctx }) => {
