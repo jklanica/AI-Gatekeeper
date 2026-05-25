@@ -13,6 +13,9 @@ export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  openaiApiKey: text('openai_api_key'),
+  anthropicApiKey: text('anthropic_api_key'),
+  googleApiKey: text('google_api_key'),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

@@ -14,12 +14,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Dashboard</h1>
           <p className="text-zinc-400 mt-1">Manage your AI projects and track API usage.</p>
         </div>
-        <Button onClick={() => router.push('/projects/new')} className="bg-emerald-500 hover:bg-emerald-600 text-black">
+        <Button onClick={() => router.push('/projects/new')} className="bg-emerald-500 hover:bg-emerald-600 text-black w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           New Project
         </Button>

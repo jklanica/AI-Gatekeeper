@@ -20,7 +20,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   
-  const { data: project, isLoading: loadingProject } = trpc.projects.get.useQuery({ id });
+  const { data: project, isLoading: loadingProject, refetch: refetchProject } = trpc.projects.get.useQuery({ id });
   const { data: summary } = trpc.analytics.summary.useQuery({ projectId: id });
   const { data: timeline } = trpc.analytics.timeline.useQuery({ projectId: id });
   const { data: members, refetch: refetchMembers } = trpc.members.list.useQuery({ projectId: id });
@@ -57,6 +57,24 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
   const router = useRouter();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const [openaiKeyInput, setOpenaiKeyInput] = useState('');
+  const [anthropicKeyInput, setAnthropicKeyInput] = useState('');
+  const [googleKeyInput, setGoogleKeyInput] = useState('');
+
+  const updateProviderKeysMutation = trpc.projects.updateProviderApiKeys.useMutation({
+    onSuccess: () => {
+      toast.success('Provider API keys updated successfully');
+      setOpenaiKeyInput('');
+      setAnthropicKeyInput('');
+      setGoogleKeyInput('');
+      refetchProject();
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update provider API keys')
+  });
+
+  const isSavingKeys = updateProviderKeysMutation.isPending;
+  const hasKeysToSave = openaiKeyInput || anthropicKeyInput || googleKeyInput;
   
   const deleteProjectMutation = trpc.projects.delete.useMutation({
     onSuccess: () => {
@@ -117,7 +135,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">{project?.name}</h1>
           <p className="text-zinc-400 mt-1">{project?.description}</p>
@@ -125,7 +143,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-zinc-900/50 border border-zinc-800 text-zinc-400">
+        <TabsList className="bg-zinc-900/50 border border-zinc-800 text-zinc-400 flex w-full justify-start overflow-x-auto h-auto p-1 no-scrollbar">
           <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Activity className="w-4 h-4 mr-2"/> Overview</TabsTrigger>
           <TabsTrigger value="members" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Users className="w-4 h-4 mr-2"/> Members</TabsTrigger>
           <TabsTrigger value="apikeys" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Key className="w-4 h-4 mr-2"/> API Keys</TabsTrigger>
@@ -465,12 +483,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               </div>
 
               <div className="relative">
-                <div className="absolute right-4 top-4">
+                <div className="absolute right-2 top-2 sm:right-4 sm:top-4">
                   <Button variant="outline" size="sm" onClick={() => handleCopy(configSnippet || '')} className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300">
                     <Copy className="h-4 w-4 mr-2" /> Copy
                   </Button>
                 </div>
-                <pre className="bg-black/60 border border-zinc-800 rounded-xl p-6 text-sm text-zinc-300 overflow-x-auto">
+                <pre className="bg-black/60 border border-zinc-800 rounded-xl p-4 sm:p-6 pt-14 sm:pt-6 text-sm text-zinc-300 overflow-x-auto">
                   <code>{configSnippet || 'Loading config...'}</code>
                 </pre>
               </div>
@@ -479,7 +497,72 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         </TabsContent>
 
         {myRole === 'owner' && (
-          <TabsContent value="settings">
+          <TabsContent value="settings" className="space-y-6">
+            <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-xl text-zinc-100">Provider Settings</CardTitle>
+                <CardDescription className="text-zinc-400">Configure the upstream AI provider API key for this project.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <Label htmlFor="openaiApiKey" className="text-zinc-300">OpenAI API Key</Label>
+                    <Input 
+                      id="openaiApiKey" 
+                      type="password"
+                      placeholder={project?.openaiApiKey ? '••••••••••••••' : 'sk-...'} 
+                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
+                      value={openaiKeyInput}
+                      onChange={(e) => setOpenaiKeyInput(e.target.value)}
+                    />
+                    {project?.openaiApiKey && !openaiKeyInput && (
+                      <p className="text-xs text-zinc-500 mt-1">A key is currently configured: {project.openaiApiKey}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="anthropicApiKey" className="text-zinc-300">Anthropic API Key</Label>
+                    <Input 
+                      id="anthropicApiKey" 
+                      type="password"
+                      placeholder={project?.anthropicApiKey ? '••••••••••••••' : 'sk-ant-...'} 
+                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
+                      value={anthropicKeyInput}
+                      onChange={(e) => setAnthropicKeyInput(e.target.value)}
+                    />
+                    {project?.anthropicApiKey && !anthropicKeyInput && (
+                      <p className="text-xs text-zinc-500 mt-1">A key is currently configured: {project.anthropicApiKey}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="googleApiKey" className="text-zinc-300">Google Gemini API Key</Label>
+                    <Input 
+                      id="googleApiKey" 
+                      type="password"
+                      placeholder={project?.googleApiKey ? '••••••••••••••' : 'AIza...'} 
+                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
+                      value={googleKeyInput}
+                      onChange={(e) => setGoogleKeyInput(e.target.value)}
+                    />
+                    {project?.googleApiKey && !googleKeyInput && (
+                      <p className="text-xs text-zinc-500 mt-1">A key is currently configured: {project.googleApiKey}</p>
+                    )}
+                  </div>
+                  <Button 
+                    onClick={() => updateProviderKeysMutation.mutate({ 
+                      id, 
+                      openaiApiKey: openaiKeyInput || undefined,
+                      anthropicApiKey: anthropicKeyInput || undefined,
+                      googleApiKey: googleKeyInput || undefined,
+                    })}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
+                    disabled={!hasKeysToSave || isSavingKeys}
+                  >
+                    {isSavingKeys ? 'Saving...' : 'Save API Keys'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-red-900/50 bg-red-950/10 backdrop-blur-xl">
               <CardHeader>
                 <CardTitle className="text-xl text-red-400">Danger Zone</CardTitle>

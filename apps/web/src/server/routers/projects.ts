@@ -25,6 +25,23 @@ export const projectsRouter = router({
     if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
     const [project] = await db.select().from(projects).where(eq(projects.id, input.id)).limit(1);
+    
+    // Mask the provider API keys for security
+    const maskKey = (key: string | null) => {
+      if (!key) return null;
+      return key.length > 8 ? `${key.substring(0, 4)}••••••••••••••${key.slice(-4)}` : '••••••••••••••';
+    };
+
+    if (membership.role === 'owner' || membership.role === 'admin') {
+      project.openaiApiKey = maskKey(project.openaiApiKey);
+      project.anthropicApiKey = maskKey(project.anthropicApiKey);
+      project.googleApiKey = maskKey(project.googleApiKey);
+    } else {
+      project.openaiApiKey = null;
+      project.anthropicApiKey = null;
+      project.googleApiKey = null;
+    }
+    
     return project;
   }),
   create: protectedProcedure
@@ -42,6 +59,31 @@ export const projectsRouter = router({
         role: 'owner',
       });
       return newProject;
+    }),
+  updateProviderApiKeys: protectedProcedure
+    .input(z.object({ 
+      id: z.string(), 
+      openaiApiKey: z.string().optional(),
+      anthropicApiKey: z.string().optional(),
+      googleApiKey: z.string().optional()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.id), eq(projectMembers.userId, ctx.user.id))).limit(1);
+      if (membership?.role !== 'owner' && membership?.role !== 'admin') {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Only owners and admins can update provider API keys' });
+      }
+      
+      const updateData: any = {};
+      // If the field is passed as empty string, we set it to null to clear it.
+      // If it's undefined, it wasn't part of the update.
+      if (input.openaiApiKey !== undefined) updateData.openaiApiKey = input.openaiApiKey || null;
+      if (input.anthropicApiKey !== undefined) updateData.anthropicApiKey = input.anthropicApiKey || null;
+      if (input.googleApiKey !== undefined) updateData.googleApiKey = input.googleApiKey || null;
+
+      if (Object.keys(updateData).length > 0) {
+        await db.update(projects).set(updateData).where(eq(projects.id, input.id));
+      }
+      return { success: true };
     }),
   delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ input, ctx }) => {
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.id), eq(projectMembers.userId, ctx.user.id))).limit(1);

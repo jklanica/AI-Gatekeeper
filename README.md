@@ -221,7 +221,9 @@ The proxy is the core of the whole project. A developer configures their AI tool
 4. Pipes the response back to the client (streaming supported).
 5. After the response completes, writes a `usage_events` row with token counts and cost.
 
-The proxy is **OpenAI-API-compatible** only for MVP. Any tool that supports a custom base URL works: Cursor, Continue, Cline, OpenAI SDK, LiteLLM, etc.
+The proxy exposes an **OpenAI-compatible API** to your developer tools. Any tool that supports a custom base URL works: Cursor, Continue, Cline, OpenAI SDK, etc.
+
+*Note on Multi-Provider Support:* While the frontend of the proxy mimics OpenAI, it can natively route to other providers like Anthropic or Google Gemini. By using the **Vercel AI SDK** (`@ai-sdk/anthropic`, `@ai-sdk/google`) within the Express route, the proxy automatically translates the incoming OpenAI-formatted requests and streams the provider's response back in the OpenAI SSE format. This avoids the need for heavy external translation layers like LiteLLM!
 
 ### Proxy Middleware Chain
 
