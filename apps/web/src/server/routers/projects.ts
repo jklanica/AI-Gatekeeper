@@ -12,7 +12,7 @@ export const projectsRouter = router({
       description: projects.description,
       memberCount: sql<number>`(SELECT COUNT(*)::int FROM project_members WHERE project_id = ${projects.id})`,
       totalTokens: sql<number>`COALESCE((SELECT SUM(input_tokens + output_tokens)::int FROM usage_events WHERE project_id = ${projects.id}), 0)`,
-      estimatedCost: sql<number>`COALESCE((SELECT SUM(cost_usd)::numeric FROM usage_events WHERE project_id = ${projects.id}), 0)`,
+      estimatedCost: sql<number>`COALESCE((SELECT SUM(cost_usd)::float FROM usage_events WHERE project_id = ${projects.id}), 0)`,
     })
     .from(projects)
     .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))

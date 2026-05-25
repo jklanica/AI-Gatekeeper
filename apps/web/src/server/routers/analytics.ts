@@ -11,7 +11,7 @@ export const analyticsRouter = router({
     const [result] = await db.select({
       totalRequests: sql<number>`COUNT(*)::int`,
       totalTokens: sql<number>`COALESCE(SUM(input_tokens + output_tokens)::int, 0)`,
-      totalCost: sql<number>`COALESCE(SUM(cost_usd)::numeric, 0)`,
+      totalCost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
     .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)));
