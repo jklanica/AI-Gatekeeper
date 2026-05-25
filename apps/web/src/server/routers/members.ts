@@ -22,13 +22,20 @@ export const membersRouter = router({
     return rows.map(r => ({ ...r, usage: 0 }));
   }),
   add: protectedProcedure
-    .input(z.object({ projectId: z.string(), email: z.string().email(), tags: z.array(z.string()).optional() }))
+    .input(z.object({ 
+      projectId: z.string(), 
+      email: z.string().email({ message: 'Please provide a valid email address' }), 
+      tags: z.array(z.string()).optional() 
+    }))
     .mutation(async ({ input, ctx }) => {
       const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
-      if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
+      if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
       const [userToAdd] = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
       if (!userToAdd) throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+
+      const [existingMember] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, userToAdd.id))).limit(1);
+      if (existingMember) throw new TRPCError({ code: 'CONFLICT', message: 'User is already a member of this project' });
 
       await db.insert(projectMembers).values({
         projectId: input.projectId,
@@ -41,8 +48,17 @@ export const membersRouter = router({
   remove: protectedProcedure
     .input(z.object({ projectId: z.string(), userId: z.string() }))
     .mutation(async ({ input, ctx }) => {
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'You cannot remove yourself' });
+
       const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
-      if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
+      if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      const [targetMembership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId))).limit(1);
+      if (!targetMembership) throw new TRPCError({ code: 'NOT_FOUND', message: 'Target member not found' });
+      
+      if (membership.role === 'admin' && targetMembership.role !== 'member') {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Admins can only remove members' });
+      }
 
       await db.delete(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
       return { success: true };
@@ -51,9 +67,35 @@ export const membersRouter = router({
     .input(z.object({ projectId: z.string(), userId: z.string(), tags: z.array(z.string()) }))
     .mutation(async ({ input, ctx }) => {
       const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
-      if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
+      if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      const [targetMembership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId))).limit(1);
+      if (!targetMembership) throw new TRPCError({ code: 'NOT_FOUND', message: 'Target member not found' });
+
+      if (membership.role === 'admin' && targetMembership.role !== 'member') {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Admins can only update tags for members' });
+      }
 
       await db.update(projectMembers).set({ tags: input.tags }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
+      return { success: true };
+    }),
+  updateRole: protectedProcedure
+    .input(z.object({ projectId: z.string(), userId: z.string(), role: z.enum(['owner', 'admin', 'member']) }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'You cannot change your own role' });
+
+      const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id))).limit(1);
+      if (!membership || membership.role !== 'owner') throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      if (input.role === 'owner') {
+        // Upgrade target to owner
+        await db.update(projectMembers).set({ role: 'owner' }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
+        // Downgrade current user to admin
+        await db.update(projectMembers).set({ role: 'admin' }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, ctx.user.id)));
+      } else {
+        await db.update(projectMembers).set({ role: input.role }).where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.userId)));
+      }
+      
       return { success: true };
     }),
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import { trpc } from '@/trpc/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Plus, Key, Users, Activity, Settings, TerminalSquare } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Copy, Plus, Key, Users, Activity, Settings, TerminalSquare, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -21,8 +23,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const { data: project, isLoading: loadingProject } = trpc.projects.get.useQuery({ id });
   const { data: summary } = trpc.analytics.summary.useQuery({ projectId: id });
   const { data: timeline } = trpc.analytics.timeline.useQuery({ projectId: id });
-  const { data: members } = trpc.members.list.useQuery({ projectId: id });
+  const { data: members, refetch: refetchMembers } = trpc.members.list.useQuery({ projectId: id });
   const { data: apiKeys, refetch: refetchKeys } = trpc.apiKeys.list.useQuery({ projectId: id });
+  const { data: me } = trpc.auth.me.useQuery();
+
+  const myRole = members?.find(m => m.userId === me?.id)?.role;
+  const canAddMember = myRole === 'owner' || myRole === 'admin';
   
   const [selectedTool, setSelectedTool] = useState<'vscode' | 'cursor' | 'shell' | 'python' | 'node'>('cursor');
   const { data: configSnippet } = trpc.integrations.getConfig.useQuery({ tool: selectedTool });
@@ -37,6 +43,59 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
       toast.success('API Key created!');
     }
   });
+
+  const router = useRouter();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  const deleteProjectMutation = trpc.projects.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Project deleted');
+      router.push('/dashboard');
+    },
+    onError: (err) => toast.error(err.message || 'Failed to delete project')
+  });
+
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+
+  const addMemberMutation = trpc.members.add.useMutation({
+    onSuccess: () => {
+      setIsAddMemberOpen(false);
+      setNewMemberEmail('');
+      refetchMembers();
+      toast.success('Member added!');
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to add member');
+    }
+  });
+
+  const removeMemberMutation = trpc.members.remove.useMutation({
+    onSuccess: () => {
+      refetchMembers();
+      toast.success('Member removed');
+    },
+    onError: (err) => toast.error(err.message || 'Failed to remove member')
+  });
+
+  const updateRoleMutation = trpc.members.updateRole.useMutation({
+    onSuccess: () => {
+      refetchMembers();
+      toast.success('Role updated');
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update role')
+  });
+
+  const updateTagsMutation = trpc.members.updateTags.useMutation({
+    onSuccess: () => {
+      setEditingTagsUser(null);
+      refetchMembers();
+      toast.success('Tags updated');
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update tags')
+  });
+
+  const [editingTagsUser, setEditingTagsUser] = useState<{ id: string, tags: string } | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -60,6 +119,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
           <TabsTrigger value="members" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Users className="w-4 h-4 mr-2"/> Members</TabsTrigger>
           <TabsTrigger value="apikeys" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Key className="w-4 h-4 mr-2"/> API Keys</TabsTrigger>
           <TabsTrigger value="setup" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><TerminalSquare className="w-4 h-4 mr-2"/> Setup</TabsTrigger>
+          {myRole === 'owner' && <TabsTrigger value="settings" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Settings className="w-4 h-4 mr-2"/> Settings</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -120,7 +180,39 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 <CardTitle className="text-xl text-zinc-100">Project Members</CardTitle>
                 <CardDescription className="text-zinc-400">Manage who has access to this project.</CardDescription>
               </div>
-              <Button className="bg-emerald-500 hover:bg-emerald-600 text-black"><Plus className="w-4 h-4 mr-2"/> Add Member</Button>
+              {canAddMember && (
+                <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+                  <DialogTrigger render={<Button className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer" />}>
+                    <Plus className="w-4 h-4 mr-2"/> Add Member
+                  </DialogTrigger>
+                  <DialogContent className="bg-zinc-950 border-zinc-800">
+                    <DialogHeader>
+                      <DialogTitle className="text-zinc-100">Add Project Member</DialogTitle>
+                      <DialogDescription className="text-zinc-400">Enter the email address of the user you want to add.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="memberEmail" className="text-zinc-300">User Email</Label>
+                        <Input 
+                          id="memberEmail" 
+                          type="email"
+                          placeholder="user@example.com" 
+                          className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100"
+                          value={newMemberEmail}
+                          onChange={(e) => setNewMemberEmail(e.target.value)}
+                        />
+                      </div>
+                      <Button 
+                        onClick={() => addMemberMutation.mutate({ projectId: id, email: newMemberEmail })}
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
+                        disabled={!newMemberEmail || addMemberMutation.isPending}
+                      >
+                        {addMemberMutation.isPending ? 'Adding...' : 'Add Member'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </CardHeader>
             <CardContent>
               <Table>
@@ -130,16 +222,39 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     <TableHead className="text-zinc-400">Role</TableHead>
                     <TableHead className="text-zinc-400">Tags</TableHead>
                     <TableHead className="text-right text-zinc-400">Usage (Tokens)</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members?.map((member) => (
+                  {members?.map((member) => {
+                    const isMe = member.userId === me?.id;
+                    const canEditRole = myRole === 'owner' && !isMe;
+                    const canManageUser = myRole === 'owner' || (myRole === 'admin' && member.role === 'member');
+
+                    return (
                     <TableRow key={member.userId} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                       <TableCell className="font-medium text-zinc-200">{member.name}</TableCell>
                       <TableCell>
-                        <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className={member.role === 'owner' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-300'}>
-                          {member.role}
-                        </Badge>
+                        {canEditRole ? (
+                          <Select 
+                            value={member.role} 
+                            onValueChange={(val: 'owner'|'admin'|'member') => updateRoleMutation.mutate({ projectId: id, userId: member.userId, role: val })}
+                            disabled={updateRoleMutation.isPending}
+                          >
+                            <SelectTrigger className="w-[110px] h-8 bg-transparent border-zinc-800 focus:ring-0 text-zinc-300">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                              <SelectItem value="owner">Owner</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className={member.role === 'owner' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-300'}>
+                            {member.role}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -149,12 +264,63 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         </div>
                       </TableCell>
                       <TableCell className="text-right text-zinc-300 font-mono">{(member.usage / 1000).toFixed(1)}k</TableCell>
+                      <TableCell className="text-right">
+                        {canManageUser && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 cursor-pointer" />}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                              <DropdownMenuItem className="cursor-pointer hover:bg-zinc-800" onClick={() => setEditingTagsUser({ id: member.userId, tags: member.tags.join(', ') })}>
+                                Edit Tags
+                              </DropdownMenuItem>
+                              {!isMe && (
+                                <DropdownMenuItem className="text-red-400 focus:text-red-300 focus:bg-red-400/10 cursor-pointer hover:bg-zinc-800" onClick={() => removeMemberMutation.mutate({ projectId: id, userId: member.userId })}>
+                                  Remove Member
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+          
+          <Dialog open={!!editingTagsUser} onOpenChange={(open) => !open && setEditingTagsUser(null)}>
+            <DialogContent className="bg-zinc-950 border-zinc-800">
+              <DialogHeader>
+                <DialogTitle className="text-zinc-100">Edit Tags</DialogTitle>
+                <DialogDescription className="text-zinc-400">Enter tags separated by commas.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <Input 
+                  className="bg-black/40 border-zinc-700 text-zinc-100 focus-visible:ring-emerald-500"
+                  value={editingTagsUser?.tags || ''}
+                  onChange={e => setEditingTagsUser(prev => prev ? { ...prev, tags: e.target.value } : null)}
+                  placeholder="backend, api, admin"
+                />
+                <Button 
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
+                  onClick={() => {
+                    if (editingTagsUser) {
+                      updateTagsMutation.mutate({ 
+                        projectId: id, 
+                        userId: editingTagsUser.id, 
+                        tags: editingTagsUser.tags.split(',').map(t => t.trim()).filter(Boolean) 
+                      });
+                    }
+                  }}
+                  disabled={updateTagsMutation.isPending}
+                >
+                  {updateTagsMutation.isPending ? 'Saving...' : 'Save Tags'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="apikeys">
@@ -275,6 +441,49 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
         </TabsContent>
+
+        {myRole === 'owner' && (
+          <TabsContent value="settings">
+            <Card className="border-red-900/50 bg-red-950/10 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-xl text-red-400">Danger Zone</CardTitle>
+                <CardDescription className="text-red-400/80">Irreversible and destructive actions.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-zinc-100 font-medium">Delete Project</h3>
+                    <p className="text-sm text-zinc-400 mt-1">Permanently delete this project and all of its data. This cannot be undone.</p>
+                  </div>
+                  <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <DialogTrigger render={<Button variant="destructive" className="bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/50 cursor-pointer" />}>
+                      Delete Project
+                    </DialogTrigger>
+                    <DialogContent className="bg-zinc-950 border-red-900/50">
+                      <DialogHeader>
+                        <DialogTitle className="text-red-400">Are you absolutely sure?</DialogTitle>
+                        <DialogDescription className="text-zinc-400">
+                          This action cannot be undone. This will permanently delete the <span className="font-bold text-zinc-200">{project?.name}</span> project, remove all members, revoke all API keys, and delete all usage data.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="flex gap-3 justify-end mt-4">
+                        <Button variant="outline" className="border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 cursor-pointer" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                        <Button 
+                          variant="destructive" 
+                          className="cursor-pointer"
+                          onClick={() => deleteProjectMutation.mutate({ id })}
+                          disabled={deleteProjectMutation.isPending}
+                        >
+                          {deleteProjectMutation.isPending ? 'Deleting...' : 'Yes, delete project'}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
