@@ -5,11 +5,14 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "db:push": "pnpm --filter @ai-gatekeeper/db run db:push",
-    "db:studio": "pnpm --filter @ai-gatekeeper/db run db:studio"
+    "db:studio": "pnpm --filter @ai-gatekeeper/db run db:studio",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "prettier": "^3.2.5",
     "turbo": "^2.9.16",
     "typescript": "^5.4.0"
