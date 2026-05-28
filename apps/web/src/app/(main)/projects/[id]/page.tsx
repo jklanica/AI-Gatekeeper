@@ -1,162 +1,55 @@
 'use client';
 
 import { useState, use } from 'react';
-import { useRouter } from 'next/navigation';
 import { trpc } from '@/trpc/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Copy, Plus, Key, Users, Activity, Settings, TerminalSquare, MoreHorizontal } from 'lucide-react';
-import { toast } from 'sonner';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Key, Users, Activity, Settings, TerminalSquare } from 'lucide-react';
+
+import { ProjectOverviewTab } from './_components/ProjectOverviewTab';
+import { ProjectMembersTab } from './_components/ProjectMembersTab';
+import { ProjectApiKeysTab } from './_components/ProjectApiKeysTab';
+import { ProjectSetupTab } from './_components/ProjectSetupTab';
+import { ProjectSettingsTab } from './_components/ProjectSettingsTab';
 
 /**
  * ProjectDetailsPage Component
  * 
  * Main interface for managing a specific project. Includes tabs for:
- * - Overview (Usage analytics and cost charts)
- * - Members (Role management, tags, and member removal)
- * - API Keys (Virtual key generation and revocation)
- * - Setup (Integration snippets for tools like VSCode, Cursor)
- * - Settings (Upstream provider credentials; owner-only)
+ * - Overview: Usage analytics and cost charts
+ * - Members: Role management, tags, and member removal
+ * - API Keys: Virtual key generation and revocation
+ * - Setup: Integration snippets for tools like VSCode, Cursor
+ * - Settings: Upstream provider credentials; owner-only
  * 
  * @param {Object} props - Component properties.
  * @param {Promise<{ id: string }>} props.params - Dynamic route parameters.
  * @returns {JSX.Element} The rendered project details page.
  */
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap route parameters
   const { id } = use(params);
   
-  const { data: project, isLoading: loadingProject, refetch: refetchProject } = trpc.projects.get.useQuery({ id });
-  const { data: summary } = trpc.analytics.summary.useQuery({ projectId: id });
-  const { data: timeline } = trpc.analytics.timeline.useQuery({ projectId: id });
-  const { data: members, refetch: refetchMembers } = trpc.members.list.useQuery({ projectId: id });
-  const { data: apiKeys, refetch: refetchKeys } = trpc.apiKeys.list.useQuery({ projectId: id });
+  // Fetch top-level project data for headers
+  const { data: project, isLoading: loadingProject } = trpc.projects.get.useQuery({ id });
+  
+  // Fetch user data and members to determine permissions (e.g., to show settings tab)
   const { data: me } = trpc.auth.me.useQuery();
+  const { data: members } = trpc.members.list.useQuery({ projectId: id });
 
+  // Determine the current user's role in this project
   const myRole = members?.find(m => m.userId === me?.id)?.role;
-  const canAddMember = myRole === 'owner' || myRole === 'admin';
   
-  const [selectedTool, setSelectedTool] = useState<'vscode' | 'cursor' | 'shell' | 'python' | 'node'>('vscode');
-  const { data: configSnippet } = trpc.integrations.getConfig.useQuery({ tool: selectedTool, projectId: id });
-
-  const [newKeyName, setNewKeyName] = useState('');
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
-
-  const revokeKeyMutation = trpc.apiKeys.revoke.useMutation({
-    onSuccess: () => {
-      refetchKeys();
-      toast.success('API Key revoked');
-    },
-    onError: (err) => toast.error(err.message || 'Failed to revoke API key')
-  });
-
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  
-  const createKeyMutation = trpc.apiKeys.create.useMutation({
-    onSuccess: (data) => {
-      setCreatedKey(data.rawKey);
-      setNewKeyName('');
-      refetchKeys();
-      toast.success('API Key created!');
-    }
-  });
-
-  const router = useRouter();
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  const [openaiKeyInput, setOpenaiKeyInput] = useState('');
-  const [anthropicKeyInput, setAnthropicKeyInput] = useState('');
-  const [googleKeyInput, setGoogleKeyInput] = useState('');
-
-  const updateProviderKeysMutation = trpc.projects.updateProviderApiKeys.useMutation({
-    onSuccess: () => {
-      toast.success('Provider API keys updated successfully');
-      setOpenaiKeyInput('');
-      setAnthropicKeyInput('');
-      setGoogleKeyInput('');
-      refetchProject();
-    },
-    onError: (err) => toast.error(err.message || 'Failed to update provider API keys')
-  });
-
-  const isSavingKeys = updateProviderKeysMutation.isPending;
-  const hasKeysToSave = openaiKeyInput || anthropicKeyInput || googleKeyInput;
-  
-  const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onSuccess: () => {
-      toast.success('Project deleted');
-      router.push('/dashboard');
-    },
-    onError: (err) => toast.error(err.message || 'Failed to delete project')
-  });
-
-  const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
-
-  const addMemberMutation = trpc.members.add.useMutation({
-    onSuccess: () => {
-      setIsAddMemberOpen(false);
-      setNewMemberEmail('');
-      refetchMembers();
-      toast.success('Member added!');
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to add member');
-    }
-  });
-
-  const removeMemberMutation = trpc.members.remove.useMutation({
-    onSuccess: () => {
-      refetchMembers();
-      toast.success('Member removed');
-    },
-    onError: (err) => toast.error(err.message || 'Failed to remove member')
-  });
-
-  const updateRoleMutation = trpc.members.updateRole.useMutation({
-    onSuccess: () => {
-      refetchMembers();
-      toast.success('Role updated');
-    },
-    onError: (err) => toast.error(err.message || 'Failed to update role')
-  });
-
-  const updateTagsMutation = trpc.members.updateTags.useMutation({
-    onSuccess: () => {
-      setEditingTagsUser(null);
-      refetchMembers();
-      toast.success('Tags updated');
-    },
-    onError: (err) => toast.error(err.message || 'Failed to update tags')
-  });
-
-  const [editingTagsUser, setEditingTagsUser] = useState<{ id: string, tags: string } | null>(null);
-
-  const handleCopy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Copied to clipboard');
-    } catch {
-      toast.error('Failed to copy to clipboard');
-    }
-  };
-
+  // Active tab state
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Lifted state for API Key Modal to allow navigating and auto-opening it from Setup tab
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
   if (loadingProject) return <div className="text-zinc-400">Loading project...</div>;
 
   return (
     <div className="space-y-6">
+      {/* Project Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">{project?.name}</h1>
@@ -164,490 +57,57 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      {/* Tabs Interface */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-zinc-900/50 border border-zinc-800 text-zinc-400 flex w-full justify-start overflow-x-auto h-auto p-1 no-scrollbar">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Activity className="w-4 h-4 mr-2"/> Overview</TabsTrigger>
-          <TabsTrigger value="members" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Users className="w-4 h-4 mr-2"/> Members</TabsTrigger>
-          <TabsTrigger value="apikeys" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Key className="w-4 h-4 mr-2"/> API Keys</TabsTrigger>
-          <TabsTrigger value="setup" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><TerminalSquare className="w-4 h-4 mr-2"/> Setup</TabsTrigger>
-          {myRole === 'owner' && <TabsTrigger value="settings" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100"><Settings className="w-4 h-4 mr-2"/> Settings</TabsTrigger>}
+          <TabsTrigger value="overview" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100">
+            <Activity className="w-4 h-4 mr-2"/> Overview
+          </TabsTrigger>
+          <TabsTrigger value="members" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100">
+            <Users className="w-4 h-4 mr-2"/> Members
+          </TabsTrigger>
+          <TabsTrigger value="apikeys" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100">
+            <Key className="w-4 h-4 mr-2"/> API Keys
+          </TabsTrigger>
+          <TabsTrigger value="setup" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100">
+            <TerminalSquare className="w-4 h-4 mr-2"/> Setup
+          </TabsTrigger>
+          {myRole === 'owner' && (
+            <TabsTrigger value="settings" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100">
+              <Settings className="w-4 h-4 mr-2"/> Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-zinc-400">Total Requests</CardDescription>
-                <CardTitle className="text-3xl text-zinc-100">{(summary?.totalRequests ?? 0).toLocaleString()}</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-zinc-400">Total Tokens</CardDescription>
-                <CardTitle className="text-3xl text-zinc-100">{((summary?.totalTokens ?? 0) / 1000000).toFixed(2)}M</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-zinc-400">Total Cost</CardDescription>
-                <CardTitle className="text-3xl text-emerald-400">${(summary?.totalCost ?? 0).toFixed(2)}</CardTitle>
-              </CardHeader>
-            </Card>
-          </div>
-
-          <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-xl text-zinc-100">Usage Timeline (30 Days)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full mt-4">
-                {timeline && timeline.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={timeline}>
-                      <defs>
-                        <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                      <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                        itemStyle={{ color: '#10b981' }}
-                      />
-                      <Area type="monotone" dataKey="tokens" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 space-y-3 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
-                    <Activity className="w-8 h-8 text-zinc-700" />
-                    <p className="text-sm">No usage data available for this period.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ProjectOverviewTab projectId={id} />
         </TabsContent>
 
         <TabsContent value="members">
-          <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl text-zinc-100">Project Members</CardTitle>
-                <CardDescription className="text-zinc-400">Manage who has access to this project.</CardDescription>
-              </div>
-              {canAddMember && (
-                <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
-                  <DialogTrigger render={<Button className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer" />}>
-                    <Plus className="w-4 h-4 mr-2"/> Add Member
-                  </DialogTrigger>
-                  <DialogContent className="bg-zinc-950 border-zinc-800">
-                    <DialogHeader>
-                      <DialogTitle className="text-zinc-100">Add Project Member</DialogTitle>
-                      <DialogDescription className="text-zinc-400">Enter the email address of the user you want to add.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="memberEmail" className="text-zinc-300">User Email</Label>
-                        <Input 
-                          id="memberEmail" 
-                          type="email"
-                          placeholder="user@example.com" 
-                          className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100"
-                          value={newMemberEmail}
-                          onChange={(e) => setNewMemberEmail(e.target.value)}
-                        />
-                      </div>
-                      <Button 
-                        onClick={() => addMemberMutation.mutate({ projectId: id, email: newMemberEmail })}
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
-                        disabled={!newMemberEmail || addMemberMutation.isPending}
-                      >
-                        {addMemberMutation.isPending ? 'Adding...' : 'Add Member'}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400">Name</TableHead>
-                    <TableHead className="text-zinc-400">Role</TableHead>
-                    <TableHead className="text-zinc-400">Tags</TableHead>
-                    <TableHead className="text-right text-zinc-400">Usage (Tokens)</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members?.map((member) => {
-                    const isMe = member.userId === me?.id;
-                    const canEditRole = myRole === 'owner' && !isMe;
-                    const canManageUser = myRole === 'owner' || (myRole === 'admin' && member.role === 'member');
-
-                    return (
-                    <TableRow key={member.userId} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
-                      <TableCell className="font-medium text-zinc-200">{member.name}</TableCell>
-                      <TableCell>
-                        {canEditRole ? (
-                          <Select 
-                            value={member.role} 
-                            onValueChange={(val) => {
-                              if (val === 'owner' || val === 'admin' || val === 'member') {
-                                updateRoleMutation.mutate({ projectId: id, userId: member.userId, role: val })
-                              }
-                            }}
-                            disabled={updateRoleMutation.isPending}
-                          >
-                            <SelectTrigger className="w-[110px] h-8 bg-transparent border-zinc-800 focus:ring-0 text-zinc-300">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-300">
-                              <SelectItem value="owner">Owner</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="member">Member</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className={member.role === 'owner' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-300'}>
-                            {member.role}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {member.tags.map(tag => (
-                            <Badge key={tag} variant="outline" className="border-zinc-700 text-zinc-400">{tag}</Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right text-zinc-300 font-mono">{(member.usage / 1000).toFixed(1)}k</TableCell>
-                      <TableCell className="text-right">
-                        {canManageUser && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 cursor-pointer" />}>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
-                              <DropdownMenuItem className="cursor-pointer hover:bg-zinc-800" onClick={() => setEditingTagsUser({ id: member.userId, tags: member.tags.join(', ') })}>
-                                Edit Tags
-                              </DropdownMenuItem>
-                              {!isMe && (
-                                <DropdownMenuItem className="text-red-400 focus:text-red-300 focus:bg-red-400/10 cursor-pointer hover:bg-zinc-800" onClick={() => removeMemberMutation.mutate({ projectId: id, userId: member.userId })}>
-                                  Remove Member
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )})}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-          
-          <Dialog open={!!editingTagsUser} onOpenChange={(open) => !open && setEditingTagsUser(null)}>
-            <DialogContent className="bg-zinc-950 border-zinc-800">
-              <DialogHeader>
-                <DialogTitle className="text-zinc-100">Edit Tags</DialogTitle>
-                <DialogDescription className="text-zinc-400">Enter tags separated by commas.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <Input 
-                  className="bg-black/40 border-zinc-700 text-zinc-100 focus-visible:ring-emerald-500"
-                  value={editingTagsUser?.tags || ''}
-                  onChange={e => setEditingTagsUser(prev => prev ? { ...prev, tags: e.target.value } : null)}
-                  placeholder="backend, api, admin"
-                />
-                <Button 
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
-                  onClick={() => {
-                    if (editingTagsUser) {
-                      updateTagsMutation.mutate({ 
-                        projectId: id, 
-                        userId: editingTagsUser.id, 
-                        tags: editingTagsUser.tags.split(',').map(t => t.trim()).filter(Boolean) 
-                      });
-                    }
-                  }}
-                  disabled={updateTagsMutation.isPending}
-                >
-                  {updateTagsMutation.isPending ? 'Saving...' : 'Save Tags'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <ProjectMembersTab projectId={id} />
         </TabsContent>
 
         <TabsContent value="apikeys">
-          <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl text-zinc-100">Virtual API Keys</CardTitle>
-                <CardDescription className="text-zinc-400">Keys used to route requests through the proxy.</CardDescription>
-              </div>
-              
-              <Dialog open={isApiKeyModalOpen} onOpenChange={(open) => {
-                setIsApiKeyModalOpen(open);
-                if (!open) {
-                  // Clean up when closing modal
-                  setCreatedKey(null);
-                  setNewKeyName('');
-                }
-              }}>
-                <DialogTrigger render={<Button className="bg-emerald-500 hover:bg-emerald-600 text-black" />}>
-                  <Plus className="w-4 h-4 mr-2"/> Create Key
-                </DialogTrigger>
-                <DialogContent className="bg-zinc-950 border-zinc-800 sm:max-w-xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-zinc-100">Create New API Key</DialogTitle>
-                    <DialogDescription className="text-zinc-400">Give your key a descriptive name.</DialogDescription>
-                  </DialogHeader>
-                  
-                  {!createdKey ? (
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="keyName" className="text-zinc-300">Key Name</Label>
-                        <Input 
-                          id="keyName" 
-                          placeholder="e.g. Cursor on MBP" 
-                          className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100"
-                          value={newKeyName}
-                          onChange={(e) => setNewKeyName(e.target.value)}
-                        />
-                      </div>
-                      <Button 
-                        onClick={() => createKeyMutation.mutate({ projectId: id, name: newKeyName })}
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-black"
-                        disabled={!newKeyName || createKeyMutation.isPending}
-                      >
-                        Generate Key
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 py-4">
-                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <code className="block flex-1 min-w-0 bg-black p-2 rounded text-zinc-300 border border-zinc-800 break-all text-sm">{createdKey}</code>
-                          <Button variant="outline" size="icon" onClick={() => handleCopy(createdKey)} className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:text-zinc-100 shrink-0">
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100" onClick={() => {
-                        setCreatedKey(null);
-                        setIsApiKeyModalOpen(false);
-                      }}>Done</Button>
-                    </div>
-                  )}
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400">Name</TableHead>
-                    <TableHead className="text-zinc-400">Owner</TableHead>
-                    <TableHead className="text-zinc-400">Prefix</TableHead>
-                    <TableHead className="text-zinc-400">Created</TableHead>
-                    <TableHead className="text-right text-zinc-400">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {apiKeys?.map((key) => (
-                    <TableRow key={key.id} className="border-zinc-800 hover:bg-zinc-800/50 transition-colors">
-                      <TableCell className="font-medium text-zinc-200">{key.name}</TableCell>
-                      <TableCell className="text-zinc-400 text-sm">{key.user?.displayName || 'Unknown'}</TableCell>
-                      <TableCell className="font-mono text-zinc-400 text-sm">
-                        <span>{key.keyPrefix}••••••••</span>
-                      </TableCell>
-                      <TableCell className="text-zinc-500 text-sm">{new Date(key.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-red-400 hover:text-red-300 hover:bg-red-400/10 cursor-pointer"
-                          onClick={() => revokeKeyMutation.mutate({ id: key.id })}
-                          disabled={revokeKeyMutation.isPending}
-                        >
-                          Revoke
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <ProjectApiKeysTab 
+            projectId={id} 
+            isApiKeyModalOpen={isApiKeyModalOpen} 
+            setIsApiKeyModalOpen={setIsApiKeyModalOpen} 
+          />
         </TabsContent>
 
         <TabsContent value="setup">
-          <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-xl text-zinc-100">Tool Setup</CardTitle>
-              <CardDescription className="text-zinc-400">Configure your development environment to use the proxy.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {apiKeys && apiKeys.filter(k => k.userId === me?.id).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-zinc-400 space-y-4">
-                  <Key className="w-12 h-12 text-zinc-600" />
-                  <p>You don't have an API key yet.</p>
-                  <Button 
-                    className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
-                    onClick={() => {
-                      setActiveTab('apikeys');
-                      setIsApiKeyModalOpen(true);
-                    }}
-                  >
-                    <Plus className="w-4 h-4 mr-2"/> Create API Key
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="w-full max-w-sm space-y-2">
-                    <Label className="text-zinc-300">Select Tool</Label>
-                    <Select value={selectedTool} onValueChange={(val) => {
-                      if (val === 'vscode' || val === 'cursor' || val === 'shell' || val === 'python' || val === 'node') {
-                        setSelectedTool(val);
-                      }
-                    }}>
-                      <SelectTrigger className="w-full bg-black/40 border-zinc-700 text-zinc-100">
-                        <SelectValue placeholder="Select a tool" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                        <SelectItem value="vscode">VS Code (Continue)</SelectItem>
-                        <SelectItem value="cursor">Cursor IDE</SelectItem>
-                        <SelectItem value="shell">Terminal Shell</SelectItem>
-                        <SelectItem value="python">Python SDK</SelectItem>
-                        <SelectItem value="node">Node.js SDK</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="relative rounded-xl border border-zinc-800 bg-black/60 overflow-hidden">
-                    <div className="absolute right-2 top-2 z-10">
-                      <Button variant="outline" size="sm" onClick={() => handleCopy(configSnippet || '')} className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer">
-                        <Copy className="h-4 w-4 mr-2" /> Copy
-                      </Button>
-                    </div>
-                    <SyntaxHighlighter
-                      language={selectedTool === 'vscode' ? 'json' : selectedTool === 'shell' ? 'bash' : selectedTool === 'python' ? 'python' : selectedTool === 'node' ? 'javascript' : 'markdown'}
-                      style={vscDarkPlus}
-                      customStyle={{ margin: 0, background: 'transparent', padding: '1.5rem', paddingTop: '3.5rem', fontSize: '0.875rem' }}
-                    >
-                      {configSnippet || 'Loading config...'}
-                    </SyntaxHighlighter>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <ProjectSetupTab 
+            projectId={id} 
+            onNavigateToApiKeys={() => {
+              setActiveTab('apikeys');
+              setIsApiKeyModalOpen(true);
+            }} 
+          />
         </TabsContent>
 
         {myRole === 'owner' && (
           <TabsContent value="settings" className="space-y-6">
-            <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-xl text-zinc-100">Provider Settings</CardTitle>
-                <CardDescription className="text-zinc-400">Configure the upstream AI provider API keys for this project.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <Label htmlFor="openaiApiKey" className="text-zinc-300">OpenAI API Key</Label>
-                    <Input 
-                      id="openaiApiKey" 
-                      type="password"
-                      placeholder={project?.openaiApiKey ? '••••••••••••••' : 'sk-...'} 
-                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
-                      value={openaiKeyInput}
-                      onChange={(e) => setOpenaiKeyInput(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="anthropicApiKey" className="text-zinc-500">Anthropic API Key (Coming soon)</Label>
-                    <Input 
-                      id="anthropicApiKey" 
-                      type="password"
-                      placeholder="Coming soon" 
-                      className="bg-black/20 border-zinc-800 text-zinc-600 font-mono cursor-not-allowed"
-                      value=""
-                      onChange={() => {}}
-                      disabled
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="googleApiKey" className="text-zinc-300">Google Gemini API Key</Label>
-                    <Input 
-                      id="googleApiKey" 
-                      type="password"
-                      placeholder={project?.googleApiKey ? '••••••••••••••' : 'AIza...'} 
-                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
-                      value={googleKeyInput}
-                      onChange={(e) => setGoogleKeyInput(e.target.value)}
-                    />
-                  </div>
-                  <Button 
-                    onClick={() => updateProviderKeysMutation.mutate({ 
-                      id, 
-                      openaiApiKey: openaiKeyInput || undefined,
-                      anthropicApiKey: anthropicKeyInput || undefined,
-                      googleApiKey: googleKeyInput || undefined,
-                    })}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
-                    disabled={!hasKeysToSave || isSavingKeys}
-                  >
-                    {isSavingKeys ? 'Saving...' : 'Save API Keys'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-red-900/50 bg-red-950/10 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-xl text-red-400">Danger Zone</CardTitle>
-                <CardDescription className="text-red-400/80">Irreversible and destructive actions.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-zinc-100 font-medium">Delete Project</h3>
-                    <p className="text-sm text-zinc-400 mt-1">Permanently delete this project and all of its data. This cannot be undone.</p>
-                  </div>
-                  <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                    <DialogTrigger render={<Button variant="destructive" className="bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/50 cursor-pointer" />}>
-                      Delete Project
-                    </DialogTrigger>
-                    <DialogContent className="bg-zinc-950 border-red-900/50">
-                      <DialogHeader>
-                        <DialogTitle className="text-red-400">Are you absolutely sure?</DialogTitle>
-                        <DialogDescription className="text-zinc-400">
-                          This action cannot be undone. This will permanently delete the <span className="font-bold text-zinc-200">{project?.name}</span> project, remove all members, revoke all API keys, and delete all usage data.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="flex gap-3 justify-end mt-4">
-                        <Button variant="outline" className="border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 cursor-pointer" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
-                        <Button 
-                          variant="destructive" 
-                          className="cursor-pointer"
-                          onClick={() => deleteProjectMutation.mutate({ id })}
-                          disabled={deleteProjectMutation.isPending}
-                        >
-                          {deleteProjectMutation.isPending ? 'Deleting...' : 'Yes, delete project'}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
+            <ProjectSettingsTab projectId={id} />
           </TabsContent>
         )}
       </Tabs>
