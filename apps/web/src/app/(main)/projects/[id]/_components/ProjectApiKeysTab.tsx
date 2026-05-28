@@ -44,7 +44,8 @@ export function ProjectApiKeysTab({ projectId, isApiKeyModalOpen, setIsApiKeyMod
       setNewKeyName('');
       refetchKeys();
       toast.success('API Key created!');
-    }
+    },
+    onError: (err) => toast.error(err.message || 'Failed to create API key')
   });
 
   const revokeKeyMutation = trpc.apiKeys.revoke.useMutation({
@@ -90,7 +91,6 @@ export function ProjectApiKeysTab({ projectId, isApiKeyModalOpen, setIsApiKeyMod
           <DialogContent className="bg-zinc-950 border-zinc-800 sm:max-w-xl">
             <DialogHeader>
               <DialogTitle className="text-zinc-100">Create New API Key</DialogTitle>
-              <DialogDescription className="text-zinc-400">Give your key a descriptive name.</DialogDescription>
             </DialogHeader>
             
             {!createdKey ? (
@@ -117,6 +117,9 @@ export function ProjectApiKeysTab({ projectId, isApiKeyModalOpen, setIsApiKeyMod
             ) : (
               // Step 2: Show the generated key (only visible once)
               <div className="space-y-4 py-4">
+                <div className="text-amber-500/90 text-sm font-medium bg-amber-500/10 p-3 rounded-md border border-amber-500/20">
+                  Please copy this key now. You will not be able to see it again!
+                </div>
                 <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                   <div className="flex items-center space-x-2">
                     <code className="block flex-1 min-w-0 bg-black p-2 rounded text-zinc-300 border border-zinc-800 break-all text-sm">{createdKey}</code>
