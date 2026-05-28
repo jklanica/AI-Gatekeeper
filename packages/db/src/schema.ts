@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, timestamp, integer, numeric, smallint, primaryKey, index } from 'drizzle-orm/pg-core';
-import { sql, desc } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 /**
  * Users Table
@@ -72,9 +72,9 @@ export const apiKeys = pgTable('api_keys', {
  */
 export const usageEvents = pgTable('usage_events', {
   id: uuid('id').defaultRandom().primaryKey(),
-  projectId: uuid('project_id').notNull().references(() => projects.id),
-  userId: uuid('user_id').notNull().references(() => users.id),
-  apiKeyId: uuid('api_key_id').notNull().references(() => apiKeys.id),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  apiKeyId: uuid('api_key_id').notNull().references(() => apiKeys.id, { onDelete: 'cascade' }),
   model: text('model').notNull(),
   provider: text('provider').notNull(),
   inputTokens: integer('input_tokens').notNull().default(0),
