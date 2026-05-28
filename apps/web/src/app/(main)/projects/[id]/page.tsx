@@ -46,7 +46,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const myRole = members?.find(m => m.userId === me?.id)?.role;
   const canAddMember = myRole === 'owner' || myRole === 'admin';
   
-  const [selectedTool, setSelectedTool] = useState<'vscode' | 'cursor' | 'shell' | 'python' | 'node'>('cursor');
+  const [selectedTool, setSelectedTool] = useState<'vscode' | 'cursor' | 'shell' | 'python' | 'node'>('vscode');
   const { data: configSnippet } = trpc.integrations.getConfig.useQuery({ tool: selectedTool, projectId: id });
 
   const [newKeyName, setNewKeyName] = useState('');
@@ -466,12 +466,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                       <TableCell className="font-medium text-zinc-200">{key.name}</TableCell>
                       <TableCell className="text-zinc-400 text-sm">{key.user?.displayName || 'Unknown'}</TableCell>
                       <TableCell className="font-mono text-zinc-400 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <span>{key.keyPrefix}••••••••</span>
-                          <Button variant="ghost" size="icon" onClick={() => handleCopy(key.key)} className="h-6 w-6 text-zinc-500 hover:text-zinc-300 cursor-pointer">
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        <span>{key.keyPrefix}••••••••</span>
                       </TableCell>
                       <TableCell className="text-zinc-500 text-sm">{new Date(key.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
@@ -528,10 +523,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                         <SelectItem value="vscode">VS Code (Continue)</SelectItem>
-                        <SelectItem value="cursor" disabled>Cursor IDE (Unsupported)</SelectItem>
-                        <SelectItem value="shell" disabled>Terminal Shell (Unsupported)</SelectItem>
-                        <SelectItem value="python" disabled>Python SDK (Unsupported)</SelectItem>
-                        <SelectItem value="node" disabled>Node.js SDK (Unsupported)</SelectItem>
+                        <SelectItem value="cursor">Cursor IDE</SelectItem>
+                        <SelectItem value="shell">Terminal Shell</SelectItem>
+                        <SelectItem value="python">Python SDK</SelectItem>
+                        <SelectItem value="node">Node.js SDK</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -561,28 +556,27 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
               <CardHeader>
                 <CardTitle className="text-xl text-zinc-100">Provider Settings</CardTitle>
-                <CardDescription className="text-zinc-400">Configure the upstream AI provider API key for this project.</CardDescription>
+                <CardDescription className="text-zinc-400">Configure the upstream AI provider API keys for this project.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 max-w-md">
                   <div className="space-y-2">
-                    <Label htmlFor="openaiApiKey" className="text-zinc-500">OpenAI API Key (Unsupported)</Label>
+                    <Label htmlFor="openaiApiKey" className="text-zinc-300">OpenAI API Key</Label>
                     <Input 
                       id="openaiApiKey" 
                       type="password"
-                      placeholder="Unsupported" 
-                      className="bg-black/20 border-zinc-800 text-zinc-600 font-mono cursor-not-allowed"
-                      value=""
-                      onChange={() => {}}
-                      disabled
+                      placeholder={project?.openaiApiKey ? '••••••••••••••' : 'sk-...'} 
+                      className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 font-mono"
+                      value={openaiKeyInput}
+                      onChange={(e) => setOpenaiKeyInput(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="anthropicApiKey" className="text-zinc-500">Anthropic API Key (Unsupported)</Label>
+                    <Label htmlFor="anthropicApiKey" className="text-zinc-500">Anthropic API Key (Coming soon)</Label>
                     <Input 
                       id="anthropicApiKey" 
                       type="password"
-                      placeholder="Unsupported" 
+                      placeholder="Coming soon" 
                       className="bg-black/20 border-zinc-800 text-zinc-600 font-mono cursor-not-allowed"
                       value=""
                       onChange={() => {}}

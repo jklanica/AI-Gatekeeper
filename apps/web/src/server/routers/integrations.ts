@@ -39,20 +39,22 @@ export const integrationsRouter = router({
         ))
         .limit(1);
 
-      const baseUrl = process.env.PROXY_BASE_URL || 'https://prism.yourcompany.com/proxy/v1';
+      const baseUrl = process.env.PROXY_BASE_URL || 'http://localhost:3001/v1';
       const keyDisplay = '<YOUR_VIRTUAL_API_KEY>';
       
       switch (input.tool) {
         case 'vscode':
-          return `// .continue/config.json\n{\n  "models": [{\n    "title": "GPT-4o (AI-Gatekeeper)",\n    "provider": "openai",\n    "model": "gpt-4o",\n    "apiBase": "${baseUrl}",\n    "apiKey": "${keyDisplay}"\n  }]\n}`;
+          // Continue extension supports OpenAI-compatible providers
+          // Our proxy is a standard OpenAI endpoint, so use provider: "openai"
+          return `// .continue/config.json\n{\n  "models": [\n    {\n      "title": "GPT-4o (AI-Gatekeeper)",\n      "provider": "openai",\n      "model": "gpt-4o",\n      "apiBase": "${baseUrl}",\n      "apiKey": "${keyDisplay}"\n    },\n    {\n      "title": "Gemini 2.5 Flash Lite (AI-Gatekeeper)",\n      "provider": "openai",\n      "model": "gemini-2.5-flash-lite",\n      "apiBase": "${baseUrl}",\n      "apiKey": "${keyDisplay}"\n    }\n  ]\n}`;
         case 'cursor':
-          return `Go to Settings → Models → Override OpenAI base URL:\n- Base URL: ${baseUrl}\n- API Key: ${keyDisplay}`;
+          return `Go to Settings → Models → Override OpenAI base URL:\n- Base URL: ${baseUrl}\n- API Key: ${keyDisplay}\n\nSupported models: gpt-4o, gpt-4o-mini, gemini-1.5-pro, gemini-2.5-flash-lite`;
         case 'shell':
           return `export OPENAI_API_KEY="${keyDisplay}"\nexport OPENAI_BASE_URL="${baseUrl}"`;
         case 'python':
-          return `import openai\nclient = openai.OpenAI(\n    api_key="${keyDisplay}",\n    base_url="${baseUrl}"\n)`;
+          return `import openai\n\nclient = openai.OpenAI(\n    api_key="${keyDisplay}",\n    base_url="${baseUrl}"\n)\n\n# Works with any supported model\nresponse = client.chat.completions.create(\n    model="gpt-4o-mini",  # or "gemini-2.5-flash-lite"\n    messages=[{"role": "user", "content": "Hello!"}]\n)`;
         case 'node':
-          return `import OpenAI from 'openai';\nconst openai = new OpenAI({\n  apiKey: "${keyDisplay}",\n  baseURL: "${baseUrl}"\n});`;
+          return `import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  apiKey: "${keyDisplay}",\n  baseURL: "${baseUrl}"\n});\n\n// Works with any supported model\nconst response = await client.chat.completions.create({\n  model: "gpt-4o-mini",  // or "gemini-2.5-flash-lite"\n  messages: [{ role: "user", content: "Hello!" }]\n});`;
         default:
           return 'Unsupported tool';
       }
