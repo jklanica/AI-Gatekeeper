@@ -57,7 +57,7 @@ export const analyticsRouter = router({
     const rows = await db.select({
       name: users.displayName,
       tokens: sql<number>`COALESCE(SUM(input_tokens + output_tokens)::int, 0)`,
-      cost: sql<number>`COALESCE(SUM(cost_usd)::numeric, 0)`,
+      cost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
     .leftJoin(users, eq(users.id, usageEvents.userId))
@@ -81,7 +81,7 @@ export const analyticsRouter = router({
     const rows = await db.select({
       model: usageEvents.model,
       tokens: sql<number>`COALESCE(SUM(input_tokens + output_tokens)::int, 0)`,
-      cost: sql<number>`COALESCE(SUM(cost_usd)::numeric, 0)`,
+      cost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
     .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)))
@@ -104,7 +104,7 @@ export const analyticsRouter = router({
     const rows = await db.select({
       date: sql<string>`TO_CHAR(DATE_TRUNC('day', timestamp), 'YYYY-MM-DD')`,
       tokens: sql<number>`COALESCE(SUM(input_tokens + output_tokens)::int, 0)`,
-      cost: sql<number>`COALESCE(SUM(cost_usd)::numeric, 0)`,
+      cost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
     .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)))

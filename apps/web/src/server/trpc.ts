@@ -52,22 +52,24 @@ export const protectedProcedure = t.procedure.use(async ({ next }) => {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No authentication token found' });
   }
 
+  let payload;
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.sub as string;
-
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-
-    if (!user) {
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found' });
-    }
-
-    return next({
-      ctx: {
-        user,
-      },
-    });
+    ({ payload } = await jwtVerify(token, JWT_SECRET));
   } catch {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid authentication token' });
   }
+
+  const userId = payload.sub as string;
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+  if (!user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found' });
+  }
+
+  return next({
+    ctx: {
+      user,
+    },
+  });
 });
