@@ -86,10 +86,8 @@ export function ProjectMembersTab({ projectId }: { projectId: string }) {
           {/* Add Member Dialog (Only visible to owners/admins) */}
           {canAddMember && (
             <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer">
-                  <Plus className="w-4 h-4 mr-2"/> Add Member
-                </Button>
+              <DialogTrigger render={<Button className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer" />}>
+                <Plus className="w-4 h-4 mr-2"/> Add Member
               </DialogTrigger>
               <DialogContent className="bg-zinc-950 border-zinc-800">
                 <DialogHeader>
@@ -183,10 +181,8 @@ export function ProjectMembersTab({ projectId }: { projectId: string }) {
                       {/* Action menu for managing user (tags, remove) */}
                       {canManageUser && (
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 cursor-pointer">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 cursor-pointer" />}>
+                            <MoreHorizontal className="h-4 w-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
                             <DropdownMenuItem className="cursor-pointer hover:bg-zinc-800" onClick={() => setEditingTagsUser({ id: member.userId, tags: member.tags.join(', ') })}>

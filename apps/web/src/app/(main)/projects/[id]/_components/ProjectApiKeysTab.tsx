@@ -84,10 +84,8 @@ export function ProjectApiKeysTab({ projectId, isApiKeyModalOpen, setIsApiKeyMod
             setNewKeyName('');
           }
         }}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-500 hover:bg-emerald-600 text-black">
-              <Plus className="w-4 h-4 mr-2"/> Create Key
-            </Button>
+          <DialogTrigger render={<Button className="bg-emerald-500 hover:bg-emerald-600 text-black" />}>
+            <Plus className="w-4 h-4 mr-2"/> Create Key
           </DialogTrigger>
           <DialogContent className="bg-zinc-950 border-zinc-800 sm:max-w-xl">
             <DialogHeader>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { trpc } from '@/trpc/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,15 +22,11 @@ export function AccountForm() {
   // Fetch current user data from the backend
   const { data: user, isLoading, refetch } = trpc.auth.me.useQuery();
   
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [password, setPassword] = useState('');
 
-  // Synchronize local state with fetched user data
-  useEffect(() => {
-    if (user?.displayName) {
-      setDisplayName(user.displayName);
-    }
-  }, [user?.displayName]);
+  // Fallback to existing user data if local state is unedited
+  const currentDisplayName = displayName !== null ? displayName : (user?.displayName || '');
 
   // Mutation for updating user profile and credentials
   const updateMutation = trpc.auth.updateProfile.useMutation({
@@ -59,7 +55,7 @@ export function AccountForm() {
           // Trigger profile update mutation with current local state
           // Fallback to existing display name if local state is unexpectedly empty
           updateMutation.mutate({ 
-            displayName: displayName || user?.displayName || '', 
+            displayName: currentDisplayName, 
             password: password || undefined 
           });
         }}>
@@ -81,7 +77,7 @@ export function AccountForm() {
               <Label htmlFor="displayName" className="text-zinc-300">Display Name</Label>
               <Input 
                 id="displayName" 
-                value={displayName}
+                value={currentDisplayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="bg-black/40 border-zinc-700 focus-visible:ring-emerald-500 text-zinc-100 max-w-md"
               />

@@ -40,7 +40,7 @@ export const integrationsRouter = router({
         .limit(1);
 
       const baseUrl = process.env.PROXY_BASE_URL || 'http://localhost:3001/v1';
-      const keyDisplay = '<YOUR_VIRTUAL_API_KEY>';
+      const keyDisplay = userKey ? `${userKey.keyPrefix}••••••••` : '<YOUR_VIRTUAL_API_KEY>';
       
       switch (input.tool) {
         case 'vscode':

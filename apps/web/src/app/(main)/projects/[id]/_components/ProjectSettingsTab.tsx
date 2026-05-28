@@ -136,10 +136,8 @@ export function ProjectSettingsTab({ projectId }: ProjectSettingsTabProps) {
               <p className="text-sm text-zinc-400 mt-1">Permanently delete this project and all of its data. This cannot be undone.</p>
             </div>
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/50 cursor-pointer">
-                  Delete Project
-                </Button>
+              <DialogTrigger render={<Button variant="destructive" className="bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/50 cursor-pointer" />}>
+                Delete Project
               </DialogTrigger>
               <DialogContent className="bg-zinc-950 border-red-900/50">
                 <DialogHeader>

@@ -63,7 +63,7 @@ export function ProjectSetupTab({ projectId, onNavigateToApiKeys }: ProjectSetup
           // Empty state: User needs to create an API key first
           <div className="flex flex-col items-center justify-center py-12 text-zinc-400 space-y-4">
             <Key className="w-12 h-12 text-zinc-600" />
-            <p>You don't have an API key yet.</p>
+            <p>You don&apos;t have an API key yet.</p>
             <Button 
               className="bg-emerald-500 hover:bg-emerald-600 text-black cursor-pointer"
               onClick={onNavigateToApiKeys}
