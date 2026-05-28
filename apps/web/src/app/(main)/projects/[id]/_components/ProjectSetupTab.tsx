@@ -1,15 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { trpc } from '@/trpc/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { MODEL_PRICING } from '@ai-gatekeeper/types';
 import { Copy, Key, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+const ALL_MODELS = Object.keys(MODEL_PRICING);
+const PROVIDERS: Record<string, string[]> = {
+  'OpenAI': ALL_MODELS.filter(m => m.startsWith('gpt') || /^o\d+/.test(m)),
+  'Anthropic': ALL_MODELS.filter(m => m.startsWith('claude')),
+  'Google': ALL_MODELS.filter(m => m.startsWith('gemini')),
+};
 
 /**
  * Props for ProjectSetupTab
@@ -33,12 +40,49 @@ export function ProjectSetupTab({ projectId, onNavigateToApiKeys }: ProjectSetup
   const { data: me } = trpc.auth.me.useQuery();
   const { data: apiKeys } = trpc.apiKeys.list.useQuery({ projectId });
   
-  // State for tool selection and fetching configuration snippet
-  const [selectedTool, setSelectedTool] = useState<'vscode' | 'cursor' | 'shell' | 'python' | 'node'>('vscode');
-  const { data: configSnippet } = trpc.integrations.getConfig.useQuery({ tool: selectedTool, projectId });
+  // Fetch configuration snippet for Continue.dev
+  const { data: configParams } = trpc.integrations.getConfig.useQuery({ tool: 'continue', projectId });
 
   // Check if current user has at least one API key
   const hasKeys = apiKeys && apiKeys.filter(k => k.userId === me?.id).length > 0;
+
+  const [selectedModels, setSelectedModels] = useState<string[]>(ALL_MODELS);
+
+  const toggleModel = (model: string) => {
+    setSelectedModels(prev => 
+      prev.includes(model) ? prev.filter(m => m !== model) : [...prev, model]
+    );
+  };
+
+  const setProviderModels = (provider: string, add: boolean) => {
+    const models = PROVIDERS[provider] || [];
+    if (add) {
+      setSelectedModels(prev => Array.from(new Set([...prev, ...models])));
+    } else {
+      setSelectedModels(prev => prev.filter(m => !models.includes(m)));
+    }
+  };
+
+  const configSnippet = useMemo(() => {
+    if (!configParams) return 'Loading config...';
+    if (selectedModels.length === 0) return '# Please select at least one model above.';
+    
+    const lines = [
+      'name: AI-Gatekeeper',
+      'version: 1.0.0',
+      'schema: v1',
+      'models:'
+    ];
+    selectedModels.forEach(model => {
+      lines.push(`  - name: ${model} (AI-Gatekeeper)`);
+      lines.push(`    provider: openai`);
+      lines.push(`    model: ${model}`);
+      lines.push(`    apiBase: "${configParams.baseUrl}"`);
+      lines.push(`    apiKey: "<YOUR_VIRTUAL_API_KEY>"`);
+    });
+    
+    return lines.join('\n');
+  }, [selectedModels, configParams]);
 
   /**
    * Helper function to copy snippet text to clipboard
@@ -74,38 +118,71 @@ export function ProjectSetupTab({ projectId, onNavigateToApiKeys }: ProjectSetup
         ) : (
           // Setup Snippets available
           <>
-            <div className="w-full max-w-sm space-y-2">
-              <Label className="text-zinc-300">Select Tool</Label>
-              <Select value={selectedTool} onValueChange={(val) => {
-                if (val === 'vscode' || val === 'cursor' || val === 'shell' || val === 'python' || val === 'node') {
-                  setSelectedTool(val);
-                }
-              }}>
-                <SelectTrigger className="w-full bg-black/40 border-zinc-700 text-zinc-100">
-                  <SelectValue placeholder="Select a tool" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                  <SelectItem value="vscode">VS Code (Continue)</SelectItem>
-                  <SelectItem value="cursor">Cursor IDE</SelectItem>
-                  <SelectItem value="shell">Terminal Shell</SelectItem>
-                  <SelectItem value="python">Python SDK</SelectItem>
-                  <SelectItem value="node">Node.js SDK</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-4 text-zinc-300">
+              <h3 className="text-lg font-medium text-white">How to setup Continue.dev</h3>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>Install the <strong>Continue</strong> extension for VS Code or JetBrains.</li>
+                <li>Open the Continue configuration file (<code>~/.continue/config.yaml</code>).</li>
+                <li>Select the models you want to use, then <strong>overwrite</strong> the entire file with the generated YAML below.</li>
+                <li>Replace <code>&lt;YOUR_VIRTUAL_API_KEY&gt;</code> with your actual API key.</li>
+              </ol>
             </div>
 
-            <div className="relative rounded-xl border border-zinc-800 bg-black/60 overflow-hidden">
+            <div className="mt-6 space-y-4 pt-4 border-t border-zinc-800/50">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium text-zinc-400">Select Models</h4>
+                <div className="flex gap-2">
+                  {Object.keys(PROVIDERS).map(provider => {
+                    const providerModels = PROVIDERS[provider];
+                    const allSelected = providerModels.length > 0 && providerModels.every(m => selectedModels.includes(m));
+                    return (
+                      <Button 
+                        key={provider} 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setProviderModels(provider, !allSelected)}
+                        className="h-6 text-[10px] bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                      >
+                        {allSelected ? `Remove ${provider}` : `Add all ${provider}`}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {ALL_MODELS.map((model) => {
+                  const isSelected = selectedModels.includes(model);
+                  return (
+                    <Badge 
+                      key={model} 
+                      variant={isSelected ? "default" : "outline"}
+                      onClick={() => toggleModel(model)}
+                      className={`cursor-pointer transition-colors shadow-none font-mono text-[10px] ${
+                        isSelected 
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30" 
+                          : "bg-zinc-800/30 text-zinc-500 border-zinc-700/50 hover:bg-zinc-800/50 hover:text-zinc-300"
+                      }`}
+                    >
+                      {model}
+                    </Badge>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="relative rounded-xl border border-zinc-800 bg-black/60 overflow-hidden mt-4">
               <div className="absolute right-2 top-2 z-10">
                 <Button variant="outline" size="sm" onClick={() => handleCopy(configSnippet || '')} className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer">
                   <Copy className="h-4 w-4 mr-2" /> Copy
                 </Button>
               </div>
               <SyntaxHighlighter
-                language={selectedTool === 'vscode' ? 'json' : selectedTool === 'shell' ? 'bash' : selectedTool === 'python' ? 'python' : selectedTool === 'node' ? 'javascript' : 'markdown'}
+                language="yaml"
                 style={vscDarkPlus}
                 customStyle={{ margin: 0, background: 'transparent', padding: '1.5rem', paddingTop: '3.5rem', fontSize: '0.875rem' }}
               >
-                {configSnippet || 'Loading config...'}
+                {configSnippet}
               </SyntaxHighlighter>
             </div>
           </>
