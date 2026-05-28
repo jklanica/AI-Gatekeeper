@@ -21,11 +21,15 @@ export const JWT_SECRET = new TextEncoder().encode(jwtSecretRaw);
 export const t = initTRPC.create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
+    const isZodError = error.cause instanceof ZodError;
     return {
       ...shape,
+      message: isZodError
+        ? error.cause.issues[0]?.message || 'Validation error'
+        : shape.message,
       data: {
         ...shape.data,
-        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+        zodError: isZodError ? error.cause.flatten() : null,
       },
     };
   },
