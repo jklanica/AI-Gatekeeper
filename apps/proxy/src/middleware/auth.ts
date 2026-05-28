@@ -42,27 +42,34 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
   const authHeader = req.headers.authorization;
   const xApiKey = req.headers['x-api-key'] as string;
   const xGoogApiKey = req.headers['x-goog-api-key'] as string;
+  const queryKey = req.query.key as string;
   
   let rawKey = '';
   if (authHeader && authHeader.startsWith('Bearer ')) {
+    rawKey = authHeader.split(' ')[1];
+  } else if (authHeader && authHeader.startsWith('token ')) {
     rawKey = authHeader.split(' ')[1];
   } else if (xApiKey) {
     rawKey = xApiKey;
   } else if (xGoogApiKey) {
     rawKey = xGoogApiKey;
+  } else if (queryKey) {
+    rawKey = queryKey;
   } else {
+    console.error('Missing auth header. Headers received:', req.headers);
     return res.status(401).json({ error: { message: 'Missing or invalid authentication header' } });
   }
   
-  // We use the raw key directly now
+  // Hash the raw key to match the stored SHA-256 hash in the DB
   const key = rawKey;
+  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
   let cached = keyCache.get(key);
 
   if (cached === undefined) {
-    // Not in cache, look up in DB
+    // Not in cache, look up in DB by hash
     const keyRecord = await db.query.apiKeys.findFirst({
-      where: eq(apiKeys.key, key),
+      where: eq(apiKeys.key, keyHash),
     });
 
     if (!keyRecord || keyRecord.revokedAt) {
