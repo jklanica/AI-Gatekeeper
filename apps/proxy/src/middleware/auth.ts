@@ -61,10 +61,9 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
   }
   
   // Hash the raw key to match the stored SHA-256 hash in the DB
-  const key = rawKey;
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
-  let cached = keyCache.get(key);
+  let cached = keyCache.get(keyHash);
 
   if (cached === undefined) {
     // Not in cache, look up in DB by hash
@@ -74,7 +73,7 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
 
     if (!keyRecord || keyRecord.revokedAt) {
       // Cache the failure so we don't spam the DB with invalid keys
-      keyCache.set(key, { valid: false });
+      keyCache.set(keyHash, { valid: false });
       return res.status(401).json({ error: { message: 'Invalid or revoked API key' } });
     }
 
@@ -93,7 +92,7 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
         google: project?.googleApiKey || process.env.GOOGLE_API_KEY || null,
       }
     };
-    keyCache.set(key, cached);
+    keyCache.set(keyHash, cached);
   }
 
   if (!cached.valid || !cached.projectId || !cached.apiKeyId || !cached.userId || !cached.upstreamKeys) {
