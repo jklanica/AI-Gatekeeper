@@ -5,3 +5,4 @@
  * the monorepo (e.g., pricing calculations).
  */
 export * from './pricing';
+export * from './models';

@@ -5,17 +5,17 @@ import { trpc } from '@/trpc/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MODEL_PRICING } from '@ai-gatekeeper/types';
+import { PROVIDER_MODELS, ALL_SUPPORTED_MODELS } from '@ai-gatekeeper/types';
 import { Copy, Key, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-const ALL_MODELS = Object.keys(MODEL_PRICING);
+const ALL_MODELS = ALL_SUPPORTED_MODELS;
 const PROVIDERS: Record<string, string[]> = {
-  'OpenAI': ALL_MODELS.filter(m => m.startsWith('gpt') || /^o\d+/.test(m)),
-  'Anthropic': ALL_MODELS.filter(m => m.startsWith('claude')),
-  'Google': ALL_MODELS.filter(m => m.startsWith('gemini')),
+  'OpenAI': PROVIDER_MODELS.openai,
+  'Anthropic': PROVIDER_MODELS.anthropic,
+  'Google': PROVIDER_MODELS.google,
 };
 
 /**
