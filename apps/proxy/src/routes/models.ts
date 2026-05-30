@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { MODEL_PRICING } from '@ai-gatekeeper/types';
+import { ALL_SUPPORTED_MODELS, PROVIDER_MODELS } from '@ai-gatekeeper/types';
 
 export const modelsRouter = Router();
 
@@ -8,10 +8,10 @@ modelsRouter.get('/', (req, res) => {
   
   res.json({
     object: 'list',
-    data: Object.keys(MODEL_PRICING).map(id => {
+    data: ALL_SUPPORTED_MODELS.map(id => {
       let owner = 'openai';
-      if (id.startsWith('claude-')) owner = 'anthropic';
-      if (id.startsWith('gemini-')) owner = 'google';
+      if (PROVIDER_MODELS.anthropic.includes(id)) owner = 'anthropic';
+      else if (PROVIDER_MODELS.google.includes(id)) owner = 'google';
 
       return {
         id,

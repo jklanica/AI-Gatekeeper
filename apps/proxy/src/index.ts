@@ -19,8 +19,7 @@ app.get('/healthz', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Proxy routes (require virtual key)
-// JSON body parsing is needed to read the model name for provider routing
+// Routes
 app.use('/v1/models', requireVirtualKey, modelsRouter);
 app.use('/v1/chat/completions', requireVirtualKey, express.json(), chatRouter);
 
