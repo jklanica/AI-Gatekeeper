@@ -123,7 +123,7 @@ function logUsage(
         outputTokens,
         costUsd: costUsd.toString(),
         httpStatus: 200,
-        userTags: [],
+        userTags: gatekeeper.tags,
       });
     } catch (err) {
       console.error(`[proxy] Failed to log usage event for ${providerName}:`, err);

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { db, apiKeys, projects } from '@ai-gatekeeper/db';
-import { eq } from 'drizzle-orm';
+import { db, apiKeys, projects, projectMembers } from '@ai-gatekeeper/db';
+import { eq, and } from 'drizzle-orm';
 import { LRUCache } from 'lru-cache';
 import crypto from 'crypto';
 
@@ -10,6 +10,7 @@ const keyCache = new LRUCache<string, {
   projectId?: string; 
   userId?: string; 
   apiKeyId?: string;
+  tags?: string[];
   upstreamKeys?: {
     openai: string | null;
     anthropic: string | null;
@@ -28,6 +29,7 @@ declare global {
         projectId: string;
         userId: string;
         apiKeyId: string;
+        tags: string[];
         upstreamKeys: {
           openai: string | null;
           anthropic: string | null;
@@ -81,11 +83,16 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
       where: eq(projects.id, keyRecord.projectId),
     });
 
+    const membership = await db.query.projectMembers.findFirst({
+      where: and(eq(projectMembers.projectId, keyRecord.projectId), eq(projectMembers.userId, keyRecord.userId)),
+    });
+
     cached = { 
       valid: true, 
       projectId: keyRecord.projectId, 
       userId: keyRecord.userId, 
       apiKeyId: keyRecord.id,
+      tags: membership?.tags || [],
       upstreamKeys: {
         openai: project?.openaiApiKey || process.env.OPENAI_API_KEY || null,
         anthropic: project?.anthropicApiKey || process.env.ANTHROPIC_API_KEY || null,
@@ -95,7 +102,7 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
     keyCache.set(keyHash, cached);
   }
 
-  if (!cached.valid || !cached.projectId || !cached.apiKeyId || !cached.userId || !cached.upstreamKeys) {
+  if (!cached.valid || !cached.projectId || !cached.apiKeyId || !cached.userId || !cached.tags || !cached.upstreamKeys) {
     return res.status(401).json({ error: { message: 'Invalid or revoked API key' } });
   }
 
@@ -103,6 +110,7 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
     projectId: cached.projectId,
     userId: cached.userId,
     apiKeyId: cached.apiKeyId,
+    tags: cached.tags,
     upstreamKeys: cached.upstreamKeys,
   };
   next();
