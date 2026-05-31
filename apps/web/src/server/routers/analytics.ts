@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db, usageEvents, users, projectMembers } from '@ai-gatekeeper/db';
-import { eq, and, sql, gte } from 'drizzle-orm';
+import { eq, and, sql, gte, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 /** Verify the user is a member of the given project; throws UNAUTHORIZED if not. */
@@ -12,6 +12,31 @@ async function requireMembership(projectId: string, userId: string) {
   if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Not a member of this project' });
   return membership;
 }
+
+function buildFilters(input: { projectId: string, days: number, userIds?: string[], tags?: string[] }, d: Date) {
+  const conditions = [
+    eq(usageEvents.projectId, input.projectId),
+    gte(usageEvents.timestamp, d)
+  ];
+
+  if (input.userIds && input.userIds.length > 0) {
+    conditions.push(inArray(usageEvents.userId, input.userIds));
+  }
+
+  if (input.tags && input.tags.length > 0) {
+    const tagSqls = input.tags.map(t => sql`${t}`);
+    conditions.push(sql`${usageEvents.userTags} && array[${sql.join(tagSqls, sql`, `)}]::text[]`);
+  }
+
+  return and(...conditions);
+}
+
+const analyticsInput = z.object({
+  projectId: z.string(),
+  days: z.number().default(30),
+  userIds: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+});
 
 /**
  * Analytics Router
@@ -26,7 +51,7 @@ export const analyticsRouter = router({
    * Retrieves high-level usage statistics (requests, tokens, cost) for the project
    * over a specified number of days (default: 30).
    */
-  summary: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
+  summary: protectedProcedure.input(analyticsInput).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
     const d = new Date();
@@ -38,7 +63,7 @@ export const analyticsRouter = router({
       totalCost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
-    .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)));
+    .where(buildFilters(input, d));
     
     return result || { totalRequests: 0, totalTokens: 0, totalCost: 0 };
   }),
@@ -48,7 +73,7 @@ export const analyticsRouter = router({
    * 
    * Groups usage and cost metrics by individual users within the project.
    */
-  byUser: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
+  byUser: protectedProcedure.input(analyticsInput).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
     const d = new Date();
@@ -61,7 +86,7 @@ export const analyticsRouter = router({
     })
     .from(usageEvents)
     .leftJoin(users, eq(users.id, usageEvents.userId))
-    .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)))
+    .where(buildFilters(input, d))
     .groupBy(users.displayName);
 
     return rows.map(r => ({ ...r, name: r.name || '(Shared Key)' }));
@@ -72,7 +97,7 @@ export const analyticsRouter = router({
    * 
    * Groups usage and cost metrics by the specific LLM model used.
    */
-  byModel: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
+  byModel: protectedProcedure.input(analyticsInput).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
     const d = new Date();
@@ -84,7 +109,7 @@ export const analyticsRouter = router({
       cost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
-    .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)))
+    .where(buildFilters(input, d))
     .groupBy(usageEvents.model);
 
     return rows;
@@ -95,7 +120,7 @@ export const analyticsRouter = router({
    * 
    * Retrieves daily aggregated usage and cost metrics for time-series charts.
    */
-  timeline: protectedProcedure.input(z.object({ projectId: z.string(), days: z.number().default(30) })).query(async ({ input, ctx }) => {
+  timeline: protectedProcedure.input(analyticsInput).query(async ({ input, ctx }) => {
     await requireMembership(input.projectId, ctx.user.id);
 
     const d = new Date();
@@ -107,11 +132,30 @@ export const analyticsRouter = router({
       cost: sql<number>`COALESCE(SUM(cost_usd)::float, 0)`,
     })
     .from(usageEvents)
-    .where(and(eq(usageEvents.projectId, input.projectId), gte(usageEvents.timestamp, d)))
+    .where(buildFilters(input, d))
     .groupBy(sql`DATE_TRUNC('day', timestamp)`)
     .orderBy(sql`DATE_TRUNC('day', timestamp) ASC`);
 
     return rows;
   }),
-});
 
+  /**
+   * Get all unique tags used in the project
+   */
+  tags: protectedProcedure.input(z.object({ projectId: z.string() })).query(async ({ input, ctx }) => {
+    await requireMembership(input.projectId, ctx.user.id);
+    const rows = await db.select({ tags: projectMembers.tags })
+      .from(projectMembers)
+      .where(eq(projectMembers.projectId, input.projectId));
+    
+    const uniqueTags = new Set<string>();
+    for (const row of rows) {
+      if (row.tags) {
+        for (const tag of row.tags) {
+          uniqueTags.add(tag);
+        }
+      }
+    }
+    return Array.from(uniqueTags).sort();
+  }),
+});
