@@ -1,29 +1,114 @@
 'use client';
 
+import { useState } from 'react';
 import { trpc } from '@/trpc/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Activity, Filter, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
-/**
- * ProjectOverviewTab Component
- * 
- * Displays the high-level analytics for a project, including total requests, 
- * total tokens used, total cost, and a 30-day usage timeline chart.
- * 
- * @param {Object} props - Component properties.
- * @param {string} props.projectId - The ID of the current project.
- * @returns {JSX.Element} The rendered overview tab content.
- */
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
 export function ProjectOverviewTab({ projectId }: { projectId: string }) {
-  // Fetch high-level summary metrics (requests, tokens, cost)
-  const { data: summary } = trpc.analytics.summary.useQuery({ projectId });
-  
-  // Fetch day-by-day usage data for the chart
-  const { data: timeline } = trpc.analytics.timeline.useQuery({ projectId });
+  const [userIds, setUserIds] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+
+  // Fetch filter options
+  const { data: members } = trpc.members.list.useQuery({ projectId });
+  const { data: availableTags } = trpc.analytics.tags.useQuery({ projectId });
+
+  // Fetch analytics data
+  const { data: summary } = trpc.analytics.summary.useQuery({ projectId, userIds, tags });
+  const { data: timeline } = trpc.analytics.timeline.useQuery({ projectId, userIds, tags });
+  const { data: byUser } = trpc.analytics.byUser.useQuery({ projectId, userIds, tags });
+  const { data: byModel } = trpc.analytics.byModel.useQuery({ projectId, userIds, tags });
+
+  const toggleUser = (id: string) => {
+    setUserIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleTag = (tag: string) => {
+    setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
 
   return (
     <div className="space-y-6">
+      {/* Filters Toolbar */}
+      <div className="flex flex-wrap items-center gap-4 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800 backdrop-blur-xl">
+        <div className="flex items-center gap-2 text-zinc-400">
+          <Filter className="w-4 h-4" />
+          <span className="text-sm font-medium">Filters:</span>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger 
+            render={
+              <Button variant="outline" className="border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300">
+                Members ({userIds.length === 0 ? 'All' : userIds.length})
+                <ChevronDown className="ml-2 h-4 w-4 text-zinc-500" />
+              </Button>
+            } 
+          />
+          <DropdownMenuContent align="start" className="w-56 bg-zinc-900 border-zinc-800">
+            {members?.map(member => (
+              <DropdownMenuCheckboxItem
+                key={member.userId}
+                checked={userIds.includes(member.userId)}
+                onCheckedChange={() => toggleUser(member.userId)}
+                className="text-zinc-300 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer"
+              >
+                {member.name}
+              </DropdownMenuCheckboxItem>
+            ))}
+            {members?.length === 0 && (
+              <div className="p-2 text-sm text-zinc-500 text-center">No members found</div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger 
+            render={
+              <Button variant="outline" className="border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300">
+                Tags ({tags.length === 0 ? 'All' : tags.length})
+                <ChevronDown className="ml-2 h-4 w-4 text-zinc-500" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="start" className="w-56 bg-zinc-900 border-zinc-800">
+            {availableTags?.map(tag => (
+              <DropdownMenuCheckboxItem
+                key={tag}
+                checked={tags.includes(tag)}
+                onCheckedChange={() => toggleTag(tag)}
+                className="text-zinc-300 focus:bg-zinc-800 focus:text-zinc-100 cursor-pointer"
+              >
+                {tag}
+              </DropdownMenuCheckboxItem>
+            ))}
+            {availableTags?.length === 0 && (
+              <div className="p-2 text-sm text-zinc-500 text-center">No tags found</div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {(userIds.length > 0 || tags.length > 0) && (
+          <Button 
+            variant="ghost" 
+            onClick={() => { setUserIds([]); setTags([]); }}
+            className="text-zinc-400 hover:text-zinc-100"
+          >
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
       {/* KPI Cards section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl">
@@ -73,7 +158,6 @@ export function ProjectOverviewTab({ projectId }: { projectId: string }) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              // Empty state when no data is available
               <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 space-y-3 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
                 <Activity className="w-8 h-8 text-zinc-700" />
                 <p className="text-sm">No usage data available for this period.</p>
@@ -82,6 +166,85 @@ export function ProjectOverviewTab({ projectId }: { projectId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Breakdowns Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Usage by Member */}
+        <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-lg text-zinc-100">Tokens by Member</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="h-[250px] w-full">
+              {byUser && byUser.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={byUser} dataKey="tokens" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
+                      {byUser.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', color: '#fff' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">No data</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cost by Member */}
+        <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-lg text-zinc-100">Cost by Member</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="h-[250px] w-full">
+              {byUser && byUser.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={byUser} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={true} vertical={false} />
+                    <XAxis type="number" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+                    <YAxis dataKey="name" type="category" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} width={80} />
+                    <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', color: '#fff' }} cursor={{ fill: '#27272a', opacity: 0.4 }} />
+                    <Bar dataKey="cost" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">No data</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Usage by Model */}
+        <Card className="border-zinc-800 bg-zinc-900/30 backdrop-blur-xl flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-lg text-zinc-100">Tokens by Model</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="h-[250px] w-full">
+              {byModel && byModel.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={byModel} dataKey="tokens" nameKey="model" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
+                      {byModel.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', color: '#fff' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">No data</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
     </div>
   );
 }
