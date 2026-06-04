@@ -2,8 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { requireVirtualKey } from './middleware/auth';
+import { rateLimit } from './middleware/rateLimit';
 import { modelsRouter } from './routes/models';
 import { chatRouter } from './routes/chat';
+import { startUsageFlusher } from './services/usageBuffer';
 
 // Load environment variables in development
 dotenv.config();
@@ -21,7 +23,10 @@ app.get('/healthz', (req, res) => {
 
 // Routes
 app.use('/v1/models', requireVirtualKey, modelsRouter);
-app.use('/v1/chat/completions', requireVirtualKey, express.json(), chatRouter);
+app.use('/v1/chat/completions', requireVirtualKey, rateLimit, express.json(), chatRouter);
+
+// Start the usage event flusher (Redis → Postgres batching)
+startUsageFlusher();
 
 // Start the server
 app.listen(PORT, () => {

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { db, usageEvents } from '@ai-gatekeeper/db';
 import { estimateCost } from '@ai-gatekeeper/types';
 import { resolveProvider } from '../providers/index';
+import { bufferUsageEvent } from '../services/usageBuffer';
 
 export const chatRouter = Router();
 
@@ -109,24 +109,18 @@ function logUsage(
   outputTokens: number
 ) {
   if (inputTokens + outputTokens === 0) return;
-  
-  (async () => {
-    try {
-      const costUsd = estimateCost(model, inputTokens, outputTokens);
-      await db.insert(usageEvents).values({
-        projectId: gatekeeper.projectId,
-        userId: gatekeeper.userId,
-        apiKeyId: gatekeeper.apiKeyId,
-        model,
-        provider: providerName,
-        inputTokens,
-        outputTokens,
-        costUsd: costUsd.toString(),
-        httpStatus: 200,
-        userTags: gatekeeper.tags,
-      });
-    } catch (err) {
-      console.error(`[proxy] Failed to log usage event for ${providerName}:`, err);
-    }
-  })();
+
+  const costUsd = estimateCost(model, inputTokens, outputTokens);
+  bufferUsageEvent({
+    projectId: gatekeeper.projectId,
+    userId: gatekeeper.userId,
+    apiKeyId: gatekeeper.apiKeyId,
+    model,
+    provider: providerName,
+    inputTokens,
+    outputTokens,
+    costUsd: costUsd.toString(),
+    httpStatus: 200,
+    userTags: gatekeeper.tags,
+  });
 }

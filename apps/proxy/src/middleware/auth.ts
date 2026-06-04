@@ -1,25 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import { db, apiKeys, projects, projectMembers } from '@ai-gatekeeper/db';
 import { eq, and } from 'drizzle-orm';
-import { LRUCache } from 'lru-cache';
+import { redis } from '@ai-gatekeeper/redis';
 import crypto from 'crypto';
 
-// In-memory LRU cache to avoid a DB hit on every request
-const keyCache = new LRUCache<string, { 
-  valid: boolean; 
-  projectId?: string; 
-  userId?: string; 
+/** Prefix for auth cache keys in Redis */
+const AUTH_KEY_PREFIX = 'gk:auth:';
+
+/** TTL for cached auth lookups (seconds) */
+const AUTH_CACHE_TTL = 60;
+
+interface CachedAuth {
+  valid: boolean;
+  projectId?: string;
+  userId?: string;
   apiKeyId?: string;
   tags?: string[];
   upstreamKeys?: {
     openai: string | null;
     anthropic: string | null;
     google: string | null;
-  }
-}>({
-  max: 500,
-  ttl: 1000 * 60, // 60 seconds
-});
+  };
+}
 
 // Extend Express Request to include gatekeeper info
 declare global {
@@ -65,9 +67,19 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
   // Hash the raw key to match the stored SHA-256 hash in the DB
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
-  let cached = keyCache.get(keyHash);
+  let cached: CachedAuth | null = null;
 
-  if (cached === undefined) {
+  try {
+    const raw = await redis.get(AUTH_KEY_PREFIX + keyHash);
+    if (raw) {
+      cached = JSON.parse(raw);
+    }
+  } catch (err) {
+    // Redis failure shouldn't block auth — fall through to DB lookup
+    console.error('[auth] Redis read error, falling through to DB:', err);
+  }
+
+  if (!cached) {
     // Not in cache, look up in DB by hash
     const keyRecord = await db.query.apiKeys.findFirst({
       where: eq(apiKeys.key, keyHash),
@@ -75,7 +87,8 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
 
     if (!keyRecord || keyRecord.revokedAt) {
       // Cache the failure so we don't spam the DB with invalid keys
-      keyCache.set(keyHash, { valid: false });
+      const fail: CachedAuth = { valid: false };
+      try { await redis.set(AUTH_KEY_PREFIX + keyHash, JSON.stringify(fail), 'EX', AUTH_CACHE_TTL); } catch {}
       return res.status(401).json({ error: { message: 'Invalid or revoked API key' } });
     }
 
@@ -99,7 +112,8 @@ export const requireVirtualKey = async (req: Request, res: Response, next: NextF
         google: project?.googleApiKey || process.env.GOOGLE_API_KEY || null,
       }
     };
-    keyCache.set(keyHash, cached);
+
+    try { await redis.set(AUTH_KEY_PREFIX + keyHash, JSON.stringify(cached), 'EX', AUTH_CACHE_TTL); } catch {}
   }
 
   if (!cached.valid || !cached.projectId || !cached.apiKeyId || !cached.userId || !cached.tags || !cached.upstreamKeys) {
