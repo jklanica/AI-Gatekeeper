@@ -137,9 +137,9 @@ export function ProjectOverviewTab({ projectId }: { projectId: string }) {
           <CardTitle className="text-xl text-zinc-100">Usage Timeline (30 Days)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] w-full mt-4">
+          <div className="h-[300px] w-full mt-4 min-w-[1px] min-h-[1px]">
             {timeline && timeline.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="99%" height="99%">
                 <AreaChart data={timeline}>
                   <defs>
                     <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
@@ -176,9 +176,9 @@ export function ProjectOverviewTab({ projectId }: { projectId: string }) {
             <CardTitle className="text-lg text-zinc-100">Tokens by Member</CardTitle>
           </CardHeader>
           <CardContent className="flex-1">
-            <div className="h-[250px] w-full">
+            <div className="h-[250px] w-full min-w-[1px] min-h-[1px]">
               {byUser && byUser.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="99%" height="99%">
                   <PieChart>
                     <Pie data={byUser} dataKey="tokens" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
                       {byUser.map((entry, index) => (
@@ -201,9 +201,9 @@ export function ProjectOverviewTab({ projectId }: { projectId: string }) {
             <CardTitle className="text-lg text-zinc-100">Cost by Member</CardTitle>
           </CardHeader>
           <CardContent className="flex-1">
-            <div className="h-[250px] w-full">
+            <div className="h-[250px] w-full min-w-[1px] min-h-[1px]">
               {byUser && byUser.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="99%" height="99%">
                   <BarChart data={byUser} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={true} vertical={false} />
                     <XAxis type="number" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
@@ -225,9 +225,9 @@ export function ProjectOverviewTab({ projectId }: { projectId: string }) {
             <CardTitle className="text-lg text-zinc-100">Tokens by Model</CardTitle>
           </CardHeader>
           <CardContent className="flex-1">
-            <div className="h-[250px] w-full">
+            <div className="h-[250px] w-full min-w-[1px] min-h-[1px]">
               {byModel && byModel.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="99%" height="99%">
                   <PieChart>
                     <Pie data={byModel} dataKey="tokens" nameKey="model" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
                       {byModel.map((entry, index) => (
