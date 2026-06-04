@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure, JWT_SECRET } from '../trpc';
+import { router, publicProcedure, protectedProcedure, getJwtSecret } from '../trpc';
 import { db, users, passwordResetTokens } from '@ai-gatekeeper/db';
 import { eq, and, gt, lt } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
@@ -37,7 +37,7 @@ export const authRouter = router({
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('30d')
-        .sign(JWT_SECRET);
+        .sign(getJwtSecret());
 
       const cookieStore = await cookies();
       cookieStore.set('auth_token', token, {
@@ -72,7 +72,7 @@ export const authRouter = router({
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('30d')
-        .sign(JWT_SECRET);
+        .sign(getJwtSecret());
 
       const cookieStore = await cookies();
       cookieStore.set('auth_token', token, {

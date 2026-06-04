@@ -6,11 +6,13 @@ import { jwtVerify } from 'jose';
 import { db, users } from '@ai-gatekeeper/db';
 import { eq } from 'drizzle-orm';
 
-const jwtSecretRaw = process.env.JWT_SECRET;
-if (!jwtSecretRaw) {
-  throw new Error('JWT_SECRET environment variable is required. Set it to a random 32+ character string.');
+export function getJwtSecret(): Uint8Array {
+  const jwtSecretRaw = process.env.JWT_SECRET;
+  if (!jwtSecretRaw) {
+    throw new Error('JWT_SECRET environment variable is required. Set it to a random 32+ character string.');
+  }
+  return new TextEncoder().encode(jwtSecretRaw);
 }
-export const JWT_SECRET = new TextEncoder().encode(jwtSecretRaw);
 
 /**
  * tRPC Server Initialization
@@ -58,7 +60,7 @@ export const protectedProcedure = t.procedure.use(async ({ next }) => {
 
   let payload;
   try {
-    ({ payload } = await jwtVerify(token, JWT_SECRET));
+    ({ payload } = await jwtVerify(token, getJwtSecret()));
   } catch {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid authentication token' });
   }
