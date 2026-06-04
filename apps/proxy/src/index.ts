@@ -10,6 +10,14 @@ import { startUsageFlusher } from './services/usageBuffer';
 // Load environment variables in development
 dotenv.config();
 
+// Prevent third-party SDK bugs (like Google Generative AI stream parser) from crashing the server
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[proxy] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('[proxy] Uncaught Exception:', error);
+});
+
 const app = express();
 const PORT = process.env.PROXY_PORT || 3001;
 
