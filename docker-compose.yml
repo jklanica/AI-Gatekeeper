@@ -33,7 +33,6 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - PROXY_PORT=${PROXY_PORT:-3001}
-      # Construct URL using .env credentials, but forcing internal Docker hostname
       - DATABASE_URL=postgres://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism}@postgres:5432/${POSTGRES_DB:-prism}
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -54,7 +53,6 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      # Hardcode 'proxy' hostname so internal routing works
       - PROXY_BASE_URL=http://proxy:${PROXY_PORT:-3001}/v1
       - DATABASE_URL=postgres://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism}@postgres:5432/${POSTGRES_DB:-prism}
       - REDIS_URL=redis://redis:6379
