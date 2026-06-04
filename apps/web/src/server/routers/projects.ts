@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
-import { db, projects, projectMembers } from '@ai-gatekeeper/db';
-import { eq, and, sql } from 'drizzle-orm';
+import { db, projects, projectMembers, apiKeys } from '@ai-gatekeeper/db';
+import { eq, and, sql, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { redis } from '@ai-gatekeeper/redis';
 
 /**
  * Projects Router
@@ -114,6 +115,23 @@ export const projectsRouter = router({
 
       if (Object.keys(updateData).length > 0) {
         await db.update(projects).set(updateData).where(eq(projects.id, input.id));
+
+        // Invalidate analytics cache for this project
+        try {
+          const keys = await redis.keys(`gk:analytics:*:${input.id}:*`);
+          if (keys.length > 0) await redis.del(...keys);
+        } catch {}
+
+        // Invalidate auth cache entries for all active API keys in this project
+        // so the proxy picks up the new upstream provider keys
+        try {
+          const activeKeys = await db.select({ key: apiKeys.key })
+            .from(apiKeys)
+            .where(and(eq(apiKeys.projectId, input.id), isNull(apiKeys.revokedAt)));
+          if (activeKeys.length > 0) {
+            await redis.del(...activeKeys.map(k => `gk:auth:${k.key}`));
+          }
+        } catch {}
       }
       return { success: true };
     }),

@@ -3,6 +3,7 @@ import { router, protectedProcedure } from '../trpc';
 import { db, apiKeys, projectMembers, users } from '@ai-gatekeeper/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { redis } from '@ai-gatekeeper/redis';
 import crypto from 'crypto';
 
 /**
@@ -107,6 +108,10 @@ export const apiKeysRouter = router({
       }
 
       await db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.id, input.id));
+
+      // Immediately invalidate the auth cache so the proxy rejects this key right away
+      try { await redis.del(`gk:auth:${key.key}`); } catch {}
+
       return { success: true };
     }),
 });
