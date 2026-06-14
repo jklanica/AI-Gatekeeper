@@ -21,10 +21,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   
-  const { data: user } = trpc.auth.me.useQuery();
+  const { data: user, isError, isLoading } = trpc.auth.me.useQuery();
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => router.push('/login'),
   });
+
+  React.useEffect(() => {
+    if (isError) {
+      router.push('/login');
+    }
+  }, [isError, router]);
+
+  if (isLoading || isError) {
+    return (
+      <div className="flex min-h-screen bg-zinc-950 items-center justify-center">
+        <Shield className="w-8 h-8 text-emerald-400 animate-pulse" />
+      </div>
+    );
+  }
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
