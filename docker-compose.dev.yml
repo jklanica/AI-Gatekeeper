@@ -3,11 +3,10 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: prism-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-prism}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
-      POSTGRES_DB: ${POSTGRES_DB:-prism}
+      POSTGRES_USER: ${POSTGRES_USER:-ai-gatekeeper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai-gatekeeper}
+      POSTGRES_DB: ${POSTGRES_DB:-ai-gatekeeper}
     ports:
       - "5433:5432"
     volumes:
@@ -16,7 +15,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: prism-redis
     ports:
       - "6379:6379"
     volumes:

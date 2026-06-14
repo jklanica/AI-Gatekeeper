@@ -3,11 +3,10 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: prism-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-prism}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
-      POSTGRES_DB: ${POSTGRES_DB:-prism}
+      POSTGRES_USER: ${POSTGRES_USER:-ai-gatekeeper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai-gatekeeper}
+      POSTGRES_DB: ${POSTGRES_DB:-ai-gatekeeper}
     ports:
       - "5433:5432"
     volumes:
@@ -16,7 +15,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: prism-redis
     ports:
       - "6379:6379"
     volumes:
@@ -27,13 +25,12 @@ services:
     build:
       context: .
       dockerfile: apps/proxy/Dockerfile
-    container_name: prism-proxy
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - PROXY_PORT=${PROXY_PORT:-3001}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism}@postgres:5432/${POSTGRES_DB:-prism}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-ai-gatekeeper}:${POSTGRES_PASSWORD:-ai-gatekeeper}@postgres:5432/${POSTGRES_DB:-ai-gatekeeper}
       - REDIS_URL=redis://redis:6379
     depends_on:
       - postgres
@@ -46,7 +43,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-    container_name: prism-web
+
     ports:
       - "3000:3000"
     environment:
@@ -54,7 +51,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - PROXY_BASE_URL=http://proxy:${PROXY_PORT:-3001}/v1
-      - DATABASE_URL=postgres://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism}@postgres:5432/${POSTGRES_DB:-prism}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-ai-gatekeeper}:${POSTGRES_PASSWORD:-ai-gatekeeper}@postgres:5432/${POSTGRES_DB:-ai-gatekeeper}
       - REDIS_URL=redis://redis:6379
     depends_on:
       - postgres
