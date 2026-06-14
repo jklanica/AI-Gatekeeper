@@ -22,6 +22,8 @@ services:
     restart: unless-stopped
 
   proxy:
+    image: jklanica/ai-gatekeeper-proxy:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: apps/proxy/Dockerfile
@@ -38,6 +40,8 @@ services:
     restart: unless-stopped
 
   web:
+    image: jklanica/ai-gatekeeper-web:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: apps/web/Dockerfile
