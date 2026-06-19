@@ -57,3 +57,18 @@ jobs:
           # 4. Push the new production tags
           docker push ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-proxy:${{ github.ref_name }}
           docker push ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-proxy:latest
+
+      - name: Promote Migrator Image
+        run: |
+          # 1. Pull the exact image we tested in Staging
+          docker pull ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:${{ steps.slug.outputs.sha8 }}
+          
+          # 2. Tag it with the release version
+          docker tag ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:${{ steps.slug.outputs.sha8 }} ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:${{ github.ref_name }}
+          
+          # 3. Tag it with latest
+          docker tag ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:${{ steps.slug.outputs.sha8 }} ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:latest
+          
+          # 4. Push the new production tags
+          docker push ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:${{ github.ref_name }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:latest

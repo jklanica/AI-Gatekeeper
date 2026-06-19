@@ -101,3 +101,16 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-proxy:staging
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-proxy:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-proxy:buildcache,mode=max
+
+      - name: Build and push Migrator
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/migrator/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:${{ steps.slug.outputs.sha8 }}
+            ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:staging
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:buildcache,mode=max

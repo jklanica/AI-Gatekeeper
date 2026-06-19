@@ -21,6 +21,18 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
+  migrator:
+    image: jklanica/ai-gatekeeper-migrator:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: apps/migrator/Dockerfile
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-ai-gatekeeper}:${POSTGRES_PASSWORD:-ai-gatekeeper}@postgres:5432/${POSTGRES_DB:-ai-gatekeeper}
+    depends_on:
+      - postgres
+    restart: "no"
+
   proxy:
     image: jklanica/ai-gatekeeper-proxy:latest
     platform: linux/amd64
