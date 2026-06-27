@@ -29,7 +29,7 @@ export const integrationsRouter = router({
         .limit(1);
       if (!membership) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Not a member of this project' });
 
-      const baseUrl = process.env.PROXY_BASE_URL || 'http://localhost:3001/v1';
+      const baseUrl = process.env.EXTERNAL_PROXY_URL || process.env.PROXY_BASE_URL || 'http://localhost:3001/v1';
       
       return { baseUrl };
     }),
