@@ -34,7 +34,8 @@ COPY --from=builder /app/out/full/ .
 # Security: Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 migrator
+RUN chown -R migrator:nodejs /app
 USER migrator
 
 # Command to run Drizzle-Kit push for the db package
-CMD ["pnpm", "turbo", "run", "db:push", "--filter=@ai-gatekeeper/db"]
+CMD ["pnpm", "--filter=@ai-gatekeeper/db", "run", "db:push"]
