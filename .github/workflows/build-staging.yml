@@ -114,3 +114,25 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:staging
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ai-gatekeeper-migrator:buildcache,mode=max
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: jklanica/AI-Gatekeeper-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update GitOps Staging
+        run: |
+          cd gitops/apps/ai-gatekeeper/overlays/staging
+          
+          kustomize edit set image jklanica/ai-gatekeeper-web=jklanica/ai-gatekeeper-web:${{ steps.slug.outputs.sha8 }}
+          kustomize edit set image jklanica/ai-gatekeeper-proxy=jklanica/ai-gatekeeper-proxy:${{ steps.slug.outputs.sha8 }}
+          kustomize edit set image jklanica/ai-gatekeeper-migrator=jklanica/ai-gatekeeper-migrator:${{ steps.slug.outputs.sha8 }}
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add kustomization.yaml
+          git commit -m "chore(staging): update images to ${{ steps.slug.outputs.sha8 }}" || true
+          git push
