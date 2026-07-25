@@ -13,6 +13,8 @@
 
 > 🎬 **Demo video coming soon** — a walkthrough of the full workflow will be linked here.
 
+> 📦 **Kubernetes manifests & GitOps config live in a separate repo → [AI-Gatekeeper-gitops](https://github.com/jklanica/AI-Gatekeeper-gitops)**
+
 ---
 
 ## Overview & Motivation
@@ -25,40 +27,59 @@ This project was built deliberately as an engineered sandbox to master **Kuberne
 
 ## Architecture
 
-The system is a **pnpm + Turborepo monorepo** — three deployable apps (`web`, `proxy`, `migrator`) backed by three shared packages (`db`, `redis`, `types`).
-
-<details>
-<summary><strong>Monorepo structure</strong></summary>
+The system is structured as a **pnpm + Turborepo monorepo** with three deployable applications and three shared packages:
 
 ```
 ai-gatekeeper/
 ├── apps/
-│   ├── web/           # Next.js 16 dashboard — project mgmt, key management, usage analytics
-│   ├── proxy/         # Express API gateway — routes LLM requests, enforces auth + rate limits
-│   └── migrator/      # Init container — runs Drizzle-Kit schema migrations on deploy
+│   ├── web/
+│   ├── proxy/
+│   └── migrator/
 ├── packages/
-│   ├── db/            # Drizzle ORM schema + PostgreSQL client (shared)
-│   ├── redis/         # Redis client (shared)
-│   └── types/         # TypeScript type definitions (shared)
+│   ├── db/
+│   ├── redis/
+│   └── types/
 ├── docker-compose.yml
 └── docker-compose.dev.yml
 ```
 
-</details>
+### Applications
 
-### Request Flow
+**`proxy`** — Express API gateway that exposes an OpenAI-compatible `/v1/chat/completions` endpoint. Routes requests to upstream LLM providers (OpenAI, Anthropic, Google), authenticates via virtual API keys, enforces per-key rate limits through Redis, and buffers usage events for batch persistence to Postgres.
+
+**`web`** — Next.js 16 dashboard for managing projects, team members (RBAC: owner/admin/member), and virtual API keys. Displays usage analytics—tokens, cost, latency—via Recharts. Communicates with the backend over tRPC.
+
+**`migrator`** — Kubernetes init container that runs Drizzle-Kit schema migrations against Postgres before the main services start.
+
+### Shared Packages
+
+**`db`** — Drizzle ORM schema definitions, migrations, and a shared database client. Used by both `proxy` and `web`.
+
+**`redis`** — Shared Redis client configuration and utilities (rate limiting helpers, usage event buffering).
+
+**`types`** — Common TypeScript types and Zod schemas shared across all applications.
+
+### How a Request Is Handled
 
 ```mermaid
-flowchart LR
-    Client["Client App"] --> Proxy["Proxy (Express)"]
-    Proxy --> Providers["OpenAI / Anthropic / Google"]
+sequenceDiagram
+    participant Client as Client App
+    participant Proxy as Proxy (Express)
+    participant PG as PostgreSQL
+    participant Redis
+    participant LLM as OpenAI / Anthropic / Google
 
-    Proxy -.- Auth["Auth — virtual key lookup via Postgres"]
-    Proxy -.- RL["Rate Limiting — Redis sliding window"]
-    Proxy -.- UL["Usage Logging — Redis buffer → Postgres batch flush"]
+    Client->>Proxy: POST /v1/chat/completions
+    Proxy->>PG: Validate virtual API key
+    PG-->>Proxy: Key + project context
+    Proxy->>Redis: Check rate limit
+    Redis-->>Proxy: Allow / Deny
+    Proxy->>LLM: Forward request
+    LLM-->>Proxy: Completion response (stream)
+    Proxy->>Redis: Buffer usage event
+    Proxy-->>Client: Stream response
+    Note over Redis,PG: Periodic flush: Redis → Postgres
 ```
-
-The **web dashboard** (Next.js + tRPC) handles project and team management, virtual API key lifecycle, per-project provider credentials, and usage analytics with token/cost/latency breakdowns.
 
 ---
 
@@ -72,12 +93,6 @@ Each application uses **multi-stage Docker builds** optimized for a monorepo con
 | **Pruner** | Runs `turbo prune --docker` to extract only the target app and its workspace dependencies, minimizing build context |
 | **Installer** | Installs dependencies with `--frozen-lockfile` and a `--mount=type=cache` for the pnpm store. Runs the `turbo build` for the target app |
 | **Runner** | Copies only built artifacts. Creates a non-root user (`UID 1001`) and drops privileges before `CMD` |
-
-**Key optimizations:**
-- **`turbo prune --docker`** — generates a minimal dependency subgraph per app, avoiding full monorepo installs in each image
-- **BuildKit cache mounts** — persistent pnpm store across builds (`--mount=type=cache`) eliminates redundant downloads
-- **Next.js standalone output** — the web image copies only the standalone server + static assets, no `node_modules`
-- **Non-root execution** — all containers run as unprivileged users
 
 ---
 
@@ -104,7 +119,7 @@ flowchart TD
     ArgoCD --> K8s["Kubernetes Cluster"]
 ```
 
-**Staging** — On every push to `main`, GitHub Actions builds all three images (web, proxy, migrator), tags them with the short commit SHA, pushes to Docker Hub, then patches the staging Kustomize overlay in the GitOps repo. ArgoCD detects the change and syncs.
+**Staging** — On every push to `main`, GitHub Actions builds all three images (web, proxy, migrator), tags them with the short commit SHA, pushes to Docker Hub, then patches the staging Kustomize overlay in the GitOps repo. ArgoCD detects the change and syncs. Pull requests against `main` run the lint and typecheck jobs without building or pushing images.
 
 **Production** — Pushing a `v*` semver tag promotes the exact staging image (by SHA) to production—no rebuild. The image is re-tagged with the version (e.g., `v1.2.0`) and `latest`, and the production Kustomize overlay is updated.
 
@@ -136,7 +151,7 @@ pnpm install
 # 4. Start Postgres + Redis
 docker compose -f docker-compose.dev.yml up -d
 
-# 5. Push the database schema
+# 5. Push the database schema (dev shortcut — see note below)
 pnpm run db:push
 
 # 6. Start all apps in dev mode (web + proxy with hot reload)
@@ -144,6 +159,10 @@ pnpm run dev
 ```
 
 The web dashboard will be available at `http://localhost:3000` and the proxy at `http://localhost:3001`.
+
+> **`db:push` vs `migrator`** — In local development, `pnpm run db:push` uses Drizzle's schema-push to sync the database directly. In Kubernetes, the `migrator` init container runs proper Drizzle-Kit migrations instead.
+
+Git hooks are managed by **Husky** — linting and type checking run automatically on every commit.
 
 ### Full Stack (Docker Compose)
 
@@ -163,3 +182,9 @@ This builds all three application images and starts them alongside Postgres and 
 |---|---|
 | [AI-Gatekeeper](https://github.com/jklanica/AI-Gatekeeper) | Application source code, Dockerfiles, CI pipelines (this repo) |
 | [AI-Gatekeeper-gitops](https://github.com/jklanica/AI-Gatekeeper-gitops) | Kubernetes manifests, Kustomize overlays, ArgoCD configuration |
+
+---
+
+## License
+
+This project is provided for portfolio and educational purposes. All rights reserved.
