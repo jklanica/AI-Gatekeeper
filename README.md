@@ -274,4 +274,4 @@ This builds all three application images and starts them alongside Postgres and 
 
 ## License
 
-This project is provided for portfolio and educational purposes. All rights reserved.
+Licensed under the [Apache License 2.0](./LICENSE).
