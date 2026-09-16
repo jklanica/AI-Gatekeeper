@@ -1,3 +1,5 @@
+![AI-Gatekeeper](./docs/logo.png)
+
 # AI-Gatekeeper
 
 **A unified API gateway for LLM providers with per-project key management, rate limiting, usage analytics, and cost tracking.**
@@ -13,7 +15,7 @@
 ![tRPC](https://img.shields.io/badge/tRPC-2596BE?logo=trpc&logoColor=white)
 ![Drizzle](https://img.shields.io/badge/Drizzle_ORM-C5F74F?logo=drizzle&logoColor=black)
 
-> 🎬 **Demo video coming soon** — a walkthrough of the full workflow will be linked here.
+[![AI-Gatekeeper Demo Walkthrough](https://img.youtube.com/vi/3619cH1YwrE/maxresdefault.jpg)](https://www.youtube.com/watch?v=3619cH1YwrE)
 
 > 📦 **Kubernetes manifests & GitOps config live in a separate repo → [AI-Gatekeeper-gitops](https://github.com/jklanica/AI-Gatekeeper-gitops)**
 
