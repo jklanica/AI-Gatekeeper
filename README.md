@@ -1,4 +1,4 @@
-![AI-Gatekeeper](./docs/logo.png)
+![AI-Gatekeeper](./docs/logo2.png)
 
 # AI-Gatekeeper
 
@@ -14,8 +14,13 @@
 ![ArgoCD](https://img.shields.io/badge/ArgoCD-EF7B4D?logo=argo&logoColor=white)
 ![tRPC](https://img.shields.io/badge/tRPC-2596BE?logo=trpc&logoColor=white)
 ![Drizzle](https://img.shields.io/badge/Drizzle_ORM-C5F74F?logo=drizzle&logoColor=black)
+[![Demo Video](https://img.shields.io/badge/Demo-YouTube-FF0000?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=3619cH1YwrE)
 
-[![AI-Gatekeeper Demo Walkthrough](https://img.youtube.com/vi/3619cH1YwrE/maxresdefault.jpg)](https://www.youtube.com/watch?v=3619cH1YwrE)
+> 🎬 **Demo Walkthrough** (click below to watch):
+>
+> [![AI-Gatekeeper Demo Walkthrough](./docs/login_screen.png)](https://www.youtube.com/watch?v=3619cH1YwrE)
+>
+> ▶️ **[Watch the full demo on YouTube →](https://www.youtube.com/watch?v=3619cH1YwrE)**
 
 > 📦 **Kubernetes manifests & GitOps config live in a separate repo → [AI-Gatekeeper-gitops](https://github.com/jklanica/AI-Gatekeeper-gitops)**
 
